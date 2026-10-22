@@ -1,0 +1,6 @@
+{
+  "name": "KIARAA AI",
+  "description": "KIARAA AI (MR.V Midnight Terminal) - Voice-first intelligent personal AI assistant and extensible operating layer.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
