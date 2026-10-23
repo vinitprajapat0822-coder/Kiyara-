@@ -202,6 +202,7 @@ fun CapabilitiesScreen(viewModel: MainViewModel) {
                                 "open_system_settings" -> "wifi"
                                 "system_navigation" -> "back"
                                 "read_notifications" -> "read"
+                                "media_control" -> "toggle"
                                 "volume_control" -> "up"
                                 else -> "Standard parameter"
                             }
