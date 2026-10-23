@@ -30,7 +30,8 @@ enum class AppScreen {
     JEE_HUB,
     MEMORY,
     CAPABILITIES,
-    SETTINGS
+    SETTINGS,
+    MORE
 }
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -60,17 +61,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val auditLogs: StateFlow<List<AuditLogEntry>> = auditDao.getAllLogs()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // UI & Thinking State
-    private val _isHighThinking = MutableStateFlow(true) // Default to High Thinking for deep JEE & reasoning
-    val isHighThinking: StateFlow<Boolean> = _isHighThinking.asStateFlow()
-
+    // UI state
     private val _inputText = MutableStateFlow("")
     val inputText: StateFlow<String> = _inputText.asStateFlow()
 
     private val _isGenerating = MutableStateFlow(false)
     val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
 
-    private val _activeModelName = MutableStateFlow(GeminiApiClient.MODEL_HIGH_THINKING)
+    private val _activeModelName = MutableStateFlow(GeminiApiClient.MODEL_FAST)
     val activeModelName: StateFlow<String> = _activeModelName.asStateFlow()
 
     private val _isKeyMissing = MutableStateFlow(false)
@@ -112,12 +110,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _inputText.value = text
     }
 
-    fun toggleHighThinking() {
-        val next = !_isHighThinking.value
-        _isHighThinking.value = next
-        _activeModelName.value = if (next) GeminiApiClient.MODEL_HIGH_THINKING else GeminiApiClient.MODEL_FAST
-    }
-
     fun setOrbTheme(theme: OrbVisualTheme) {
         _orbTheme.value = theme
     }
@@ -134,6 +126,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val trimmed = userText.trim()
         if (trimmed.isEmpty() || _isGenerating.value) return
 
+        val deviceCommand = parseDeviceCommand(trimmed)
+        if (deviceCommand != null) {
+            _inputText.value = ""
+            triggerCapability(deviceCommand.first, deviceCommand.second)
+            return
+        }
+
         _inputText.value = ""
         _isGenerating.value = true
 
@@ -142,7 +141,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val userMsg = ChatMessage(
                 role = "user",
                 content = trimmed,
-                mode = if (_isHighThinking.value) "high_thinking" else "general"
+                mode = "general"
             )
             chatDao.insertMessage(userMsg)
 
@@ -152,7 +151,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // 3. Request Gemini API (or local companion fallback if key missing)
             val result = geminiClient.generateResponse(
                 prompt = trimmed,
-                enableHighThinking = _isHighThinking.value,
                 conversationHistory = historyList
             )
 
@@ -168,7 +166,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         content = result.text,
                         isThinking = result.thoughts.isNotEmpty(),
                         thoughts = result.thoughts,
-                        mode = if (_isHighThinking.value) "high_thinking" else "general"
+                        mode = "general"
                     )
                     chatDao.insertMessage(assistantMsg)
 
@@ -278,8 +276,55 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 
                 Main aapke JEE preparation (Physics, Chemistry, Math), coding, Android development, aur schedule management ke liye fully ready hoon.
                 
-                *(Note: Real-time Gemini 4-Argon reasoning requires configuring GEMINI_API_KEY in the AI Studio Secrets panel).*
+                *(Configure GEMINI_API_KEY in AI Studio Secrets for live Gemini responses.)*
             """.trimIndent()
+        }
+    }
+
+    private fun parseDeviceCommand(input: String): Pair<String, String>? {
+        val command = input.trim().lowercase().replace(Regex("\\s+"), " ")
+
+        return when {
+            command in setOf("back", "go back", "press back", "navigate back", "back jao", "wapas jao") ->
+                "system_navigation" to "back"
+            command in setOf("home", "go home", "home screen", "home par jao", "home screen kholo") ->
+                "system_navigation" to "home"
+            command in setOf("recent apps", "open recent apps", "show recent apps", "recents") ->
+                "system_navigation" to "recents"
+            command in setOf("show notifications", "open notification shade", "notification panel kholo") ->
+                "system_navigation" to "notifications"
+            command in setOf("read notifications", "read my notifications", "notifications padh do", "notification padh ke sunao") ->
+                "read_notifications" to "read"
+            command in setOf("volume up", "increase volume", "volume badhao", "awaaz badhao") ->
+                "volume_control" to "up"
+            command in setOf("volume down", "decrease volume", "volume kam karo", "awaaz kam karo") ->
+                "volume_control" to "down"
+            command in setOf("mute", "mute volume", "media mute") ->
+                "volume_control" to "mute"
+            command.startsWith("open wifi settings") || command.startsWith("open wi-fi settings") ||
+                command == "wifi settings" || command == "wi-fi settings" ->
+                "open_system_settings" to "wifi"
+            command.startsWith("open bluetooth settings") || command == "bluetooth settings" ->
+                "open_system_settings" to "bluetooth"
+            command.startsWith("open display settings") || command == "display settings" ->
+                "open_system_settings" to "display"
+            command.startsWith("open sound settings") || command == "sound settings" ->
+                "open_system_settings" to "sound"
+            command.startsWith("open accessibility settings") || command == "accessibility settings" ->
+                "open_system_settings" to "accessibility"
+            command.startsWith("open notification access settings") || command == "notification access settings" ->
+                "open_system_settings" to "notifications"
+            command.startsWith("open app settings") || command == "installed apps" ->
+                "open_system_settings" to "apps"
+            command.startsWith("open battery settings") || command == "battery settings" ->
+                "open_system_settings" to "battery"
+            command.startsWith("open location settings") || command == "location settings" ->
+                "open_system_settings" to "location"
+            command.startsWith("open ") && command.removePrefix("open ").trim().isNotBlank() ->
+                "open_app" to command.removePrefix("open ").trim()
+            command.startsWith("launch ") && command.removePrefix("launch ").trim().isNotBlank() ->
+                "open_app" to command.removePrefix("launch ").trim()
+            else -> null
         }
     }
 
@@ -328,7 +373,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     _pendingConfirmation.value = Pair(result.capability, result.parameter)
                 }
                 is ExecutionResult.Success -> {
-                    _statusBanner.value = result.message
+                    _statusBanner.value = if (result.details.isBlank()) result.message else "${result.message}\n${result.details}"
+                    if (_currentScreen.value == AppScreen.LIVE_BAAT) voiceManager.speak(result.message)
                 }
                 is ExecutionResult.Blocked -> {
                     _statusBanner.value = result.reason
@@ -346,7 +392,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             val result = capabilityRegistry.executeCapability(pending.first.id, pending.second, confirmedByUser = true)
             when (result) {
-                is ExecutionResult.Success -> _statusBanner.value = result.message
+                is ExecutionResult.Success -> {
+                    _statusBanner.value = if (result.details.isBlank()) result.message else "${result.message}\n${result.details}"
+                    if (_currentScreen.value == AppScreen.LIVE_BAAT) voiceManager.speak(result.message)
+                }
                 is ExecutionResult.Blocked -> _statusBanner.value = result.reason
                 is ExecutionResult.Error -> _statusBanner.value = "Error: ${result.error}"
                 else -> {}
