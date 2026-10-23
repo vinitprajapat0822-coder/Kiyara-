@@ -68,7 +68,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isGenerating = MutableStateFlow(false)
     val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
 
-    private val _activeModelName = MutableStateFlow(GeminiApiClient.MODEL_FAST)
+    private val _activeModelName = MutableStateFlow(GeminiApiClient.MODEL_DISPLAY_NAME)
     val activeModelName: StateFlow<String> = _activeModelName.asStateFlow()
 
     private val _isKeyMissing = MutableStateFlow(false)
@@ -157,7 +157,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             when (result) {
                 is GeminiResult.Success -> {
                     _isKeyMissing.value = false
-                    _activeModelName.value = result.modelUsed
+                    _activeModelName.value = GeminiApiClient.MODEL_DISPLAY_NAME
                     if (result.fallbackNotice != null) {
                         _statusBanner.value = result.fallbackNotice
                     }
