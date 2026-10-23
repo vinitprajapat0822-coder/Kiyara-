@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
@@ -319,7 +320,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Back / Home / Recents navigation and notification reading require separate approval in Android Settings. Navigation does not read screen contents. Notification text is kept in memory and is not automatically sent to Gemini.",
+                        text = "Navigation, notification reading, and screen-brightness control each require manual Android approval. Navigation does not read screen contents. Notification text stays in memory and is not automatically sent to Gemini.",
                         fontSize = 11.sp,
                         color = TextMuted
                     )
@@ -352,9 +353,29 @@ fun SettingsScreen(viewModel: MainViewModel) {
                             )
                         }
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            val intent = Intent(
+                                Settings.ACTION_MANAGE_WRITE_SETTINGS,
+                                Uri.parse("package:${context.packageName}")
+                            )
+                            context.startActivity(intent)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldSuccess.copy(alpha = 0.16f)),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "Brightness Access",
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = EmeraldSuccess
+                        )
+                    }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "You stay in control: turn either permission off any time in Android Settings.",
+                        text = "You stay in control: each permission can be turned off any time in Android Settings.",
                         fontSize = 10.sp,
                         color = TextDim
                     )
