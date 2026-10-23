@@ -66,6 +66,7 @@ import com.example.ui.theme.SurfaceElevated
 import com.example.ui.theme.SurfaceGlass
 import com.example.ui.theme.TextDim
 import com.example.ui.theme.TextMuted
+import com.example.ui.theme.VioletGlow
 import com.example.voice.VoiceState
 
 @Composable
