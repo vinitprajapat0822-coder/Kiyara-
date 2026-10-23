@@ -89,6 +89,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Confirmation dialog for risk-classified operations
     private val _pendingConfirmation = MutableStateFlow<Pair<CapabilityInfo, String>?>(null)
     val pendingConfirmation: StateFlow<Pair<CapabilityInfo, String>?> = _pendingConfirmation.asStateFlow()
+    private var pendingActionNeedsSpeech = false
 
     // Orb customization
     private val _orbTheme = MutableStateFlow(OrbVisualTheme.MIDNIGHT_TERMINAL)
@@ -423,7 +424,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             when (result) {
                 is ExecutionResult.RequiresConfirmation -> {
                     _pendingConfirmation.value = Pair(result.capability, result.parameter)
-                    if (speakResult) voiceManager.speak("Please confirm this action in KIARAA before it runs.")
+                    pendingActionNeedsSpeech = speakResult || _currentScreen.value == AppScreen.LIVE_BAAT
+                    if (pendingActionNeedsSpeech) voiceManager.speak("Please confirm this action in KIARAA before it runs.")
                 }
                 is ExecutionResult.Success -> {
                     _statusBanner.value = if (result.details.isBlank()) result.message else "${result.message}\n${result.details}"
@@ -446,22 +448,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun confirmPendingAction() {
         val pending = _pendingConfirmation.value ?: return
+        val shouldSpeak = pendingActionNeedsSpeech || _currentScreen.value == AppScreen.LIVE_BAAT
+        pendingActionNeedsSpeech = false
         _pendingConfirmation.value = null
         viewModelScope.launch(Dispatchers.IO) {
             val result = capabilityRegistry.executeCapability(pending.first.id, pending.second, confirmedByUser = true)
             when (result) {
                 is ExecutionResult.Success -> {
                     _statusBanner.value = if (result.details.isBlank()) result.message else "${result.message}\n${result.details}"
-                    if (_currentScreen.value == AppScreen.LIVE_BAAT) voiceManager.speak(result.message)
+                    if (shouldSpeak) {
+                        val spokenResult = if (result.details.isBlank()) result.message else "${result.message}\n${result.details}"
+                        voiceManager.speak(spokenResult)
+                    }
                 }
-                is ExecutionResult.Blocked -> _statusBanner.value = result.reason
-                is ExecutionResult.Error -> _statusBanner.value = "Error: ${result.error}"
+                is ExecutionResult.Blocked -> {
+                    _statusBanner.value = result.reason
+                    if (shouldSpeak) voiceManager.speak(result.reason)
+                }
+                is ExecutionResult.Error -> {
+                    _statusBanner.value = "Error: ${result.error}"
+                    if (shouldSpeak) voiceManager.speak("Action failed: ${result.error}")
+                }
                 else -> {}
             }
         }
     }
 
     fun dismissConfirmation() {
+        pendingActionNeedsSpeech = false
         _pendingConfirmation.value = null
     }
 
