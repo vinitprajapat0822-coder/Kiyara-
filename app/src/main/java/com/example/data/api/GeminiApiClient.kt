@@ -114,7 +114,7 @@ class GeminiApiClient {
                 when (callResult) {
                     is InternalCallResult.Success -> {
                         val fallbackNotice = if (enableHighThinking && modelName != MODEL_HIGH_THINKING) {
-                            "High-thinking model unavailable or rate-limited; automatically routed this request to $modelName."
+                            "High-thinking model did not return a usable response; automatically routed this request to $modelName."
                         } else null
 
                         return@withContext GeminiResult.Success(
@@ -153,7 +153,7 @@ class GeminiApiClient {
         // If all remote models failed or quota exceeded
         return@withContext GeminiResult.Error(
             message = if (wasRateLimitOrQuota) {
-                "Gemini API rate limit or quota reached for all attempted models. Check API usage limits and retry later. ($lastErrorMessage)"
+                "At least one Gemini model returned a rate-limit or quota response, and no fallback succeeded. Check API usage limits and retry later. ($lastErrorMessage)"
             } else {
                 "Error contacting AI provider: $lastErrorMessage"
             },
