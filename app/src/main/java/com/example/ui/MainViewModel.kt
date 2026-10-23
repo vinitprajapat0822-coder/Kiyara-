@@ -129,7 +129,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val deviceCommand = parseDeviceCommand(trimmed)
         if (deviceCommand != null) {
             _inputText.value = ""
-            triggerCapability(deviceCommand.first, deviceCommand.second)
+            triggerCapability(deviceCommand.first, deviceCommand.second, speakResult = fromVoice)
             return
         }
 
@@ -365,22 +365,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Capability Executions
-    fun triggerCapability(capabilityId: String, parameter: String) {
+    fun triggerCapability(
+        capabilityId: String,
+        parameter: String,
+        speakResult: Boolean = false
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             val result = capabilityRegistry.executeCapability(capabilityId, parameter, confirmedByUser = false)
             when (result) {
                 is ExecutionResult.RequiresConfirmation -> {
                     _pendingConfirmation.value = Pair(result.capability, result.parameter)
+                    if (speakResult) voiceManager.speak("Please confirm this action in KIARAA before it runs.")
                 }
                 is ExecutionResult.Success -> {
                     _statusBanner.value = if (result.details.isBlank()) result.message else "${result.message}\n${result.details}"
-                    if (_currentScreen.value == AppScreen.LIVE_BAAT) voiceManager.speak(result.message)
+                    if (speakResult || _currentScreen.value == AppScreen.LIVE_BAAT) {
+                        val spokenResult = if (result.details.isBlank()) result.message else "${result.message}\n${result.details}"
+                        voiceManager.speak(spokenResult)
+                    }
                 }
                 is ExecutionResult.Blocked -> {
                     _statusBanner.value = result.reason
+                    if (speakResult || _currentScreen.value == AppScreen.LIVE_BAAT) voiceManager.speak(result.reason)
                 }
                 is ExecutionResult.Error -> {
                     _statusBanner.value = "Error: ${result.error}"
+                    if (speakResult || _currentScreen.value == AppScreen.LIVE_BAAT) voiceManager.speak("Action failed: ${result.error}")
                 }
             }
         }
