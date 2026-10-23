@@ -41,6 +41,7 @@ class GeminiApiClient {
     companion object {
         const val TAG = "GeminiApiClient"
         const val MODEL_FAST = "gemini-3.5-flash-lite"
+        const val MODEL_DISPLAY_NAME = "Gemini 3.5 Flash Lite"
 
         val KIARAA_SYSTEM_PROMPT = """
             You are KIARAA AI (Project Codename: MR.V — Midnight Terminal).
