@@ -332,6 +332,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun parseDeviceCommand(input: String): Pair<String, String>? {
         val command = input.trim().lowercase().replace(Regex("\\s+"), " ")
+        val brightnessMatch = Regex(
+            "^(?:set )?(?:screen )?brightness(?: to)?\\s+(\\d{1,3})(?:\\s*%| percent)?$"
+        ).matchEntire(command)
+
+        if (brightnessMatch != null) {
+            return "brightness_control" to brightnessMatch.groupValues[1]
+        }
 
         return when {
             command in setOf("back", "go back", "press back", "navigate back", "back jao", "wapas jao") ->
@@ -350,6 +357,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 "volume_control" to "down"
             command in setOf("mute", "mute volume", "media mute") ->
                 "volume_control" to "mute"
+            command in setOf("brightness up", "increase brightness", "screen brightness up", "brightness badhao") ->
+                "brightness_control" to "up"
+            command in setOf("brightness down", "decrease brightness", "screen brightness down", "brightness kam karo") ->
+                "brightness_control" to "down"
+            command in setOf("maximum brightness", "brightness maximum", "brightness max", "max brightness") ->
+                "brightness_control" to "100"
+            command in setOf("minimum brightness", "brightness minimum", "brightness min", "min brightness") ->
+                "brightness_control" to "5"
             command in setOf("play pause", "play/pause", "toggle media", "toggle music", "pause music", "play media", "pause media", "resume music") ->
                 "media_control" to "toggle"
             command.startsWith("open wifi settings") || command.startsWith("open wi-fi settings") ||
