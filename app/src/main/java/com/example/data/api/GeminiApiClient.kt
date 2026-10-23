@@ -24,7 +24,7 @@ sealed class GeminiResult {
     data class Error(
         val message: String,
         val isKeyMissing: Boolean = false,
-        val isQuotaExceeded: Boolean = false
+        val isRateLimitOrQuota: Boolean = false
     ) : GeminiResult()
 }
 
@@ -42,11 +42,11 @@ class GeminiApiClient {
         const val TAG = "GeminiApiClient"
         const val MODEL_HIGH_THINKING = "gemini-4-argon"
         const val MODEL_RECOMMENDED = "gemini-3.8-flash"
-        const val MODEL_FAST = "gemini-3.5-flash"
+        const val MODEL_FAST = "gemini-3.5-flash-lite"
 
-        // Track if argon is known to have 0 quota on this API key to avoid repeated slow 429 roundtrips
+        // Skip the high-thinking model in this process only after an explicit quota-exhaustion response.
         @Volatile
-        var isArgonQuotaZero = false
+        var isHighThinkingModelQuotaLimited = false
 
         val KIARAA_SYSTEM_PROMPT = """
             You are KIARAA AI (Project Codename: MR.V — Midnight Terminal).
@@ -85,12 +85,12 @@ class GeminiApiClient {
         // Determine priority models to attempt
         val modelsToTry = mutableListOf<Pair<String, Boolean>>() // (modelName, withThinking)
 
-        if (enableHighThinking && !isArgonQuotaZero) {
+        if (enableHighThinking && !isHighThinkingModelQuotaLimited) {
             // First attempt specified gemini-4-argon
             modelsToTry.add(Pair(MODEL_HIGH_THINKING, true))
         }
 
-        // Resilient fallbacks: gemini-3.8-flash (with thinking), then standard gemini-3.8-flash, then gemini-3.5-flash
+        // Resilient fallbacks: Gemini 3.8 Flash with thinking, standard Gemini 3.8 Flash, then Gemini 3.5 Flash-Lite.
         if (enableHighThinking) {
             modelsToTry.add(Pair(MODEL_RECOMMENDED, true))
         }
@@ -98,7 +98,7 @@ class GeminiApiClient {
         modelsToTry.add(Pair(MODEL_FAST, false))
 
         var lastErrorMessage = ""
-        var wasQuotaExceeded = false
+        var wasRateLimitOrQuota = false
 
         for ((modelName, useThinking) in modelsToTry) {
             try {
@@ -114,7 +114,7 @@ class GeminiApiClient {
                 when (callResult) {
                     is InternalCallResult.Success -> {
                         val fallbackNotice = if (enableHighThinking && modelName != MODEL_HIGH_THINKING) {
-                            "Note: gemini-4-argon quota limit is 0 on free tier. Auto-routed query to $modelName."
+                            "High-thinking model unavailable or rate-limited; automatically routed this request to $modelName."
                         } else null
 
                         return@withContext GeminiResult.Success(
@@ -124,13 +124,17 @@ class GeminiApiClient {
                             fallbackNotice = fallbackNotice
                         )
                     }
-                    is InternalCallResult.QuotaExceeded -> {
-                        wasQuotaExceeded = true
+                    is InternalCallResult.RateLimitOrQuota -> {
+                        wasRateLimitOrQuota = true
                         lastErrorMessage = callResult.message
-                        if (modelName == MODEL_HIGH_THINKING) {
-                            // Remember that gemini-4-argon has 0 quota so we don't stall future requests
-                            isArgonQuotaZero = true
-                            Log.w(TAG, "gemini-4-argon quota exhausted (limit 0 on free tier). Automatically falling back to $MODEL_RECOMMENDED.")
+                        if (
+                            modelName == MODEL_HIGH_THINKING &&
+                            (callResult.message.contains("RESOURCE_EXHAUSTED", ignoreCase = true) ||
+                                callResult.message.contains("quota", ignoreCase = true))
+                        ) {
+                            // Skip retries only after the API explicitly reports quota exhaustion.
+                            isHighThinkingModelQuotaLimited = true
+                            Log.w(TAG, "$MODEL_HIGH_THINKING reported quota exhaustion. Using fallback models for the rest of this process.")
                         }
                         // Continue loop to try next model in fallback list
                     }
@@ -148,12 +152,12 @@ class GeminiApiClient {
 
         // If all remote models failed or quota exceeded
         return@withContext GeminiResult.Error(
-            message = if (wasQuotaExceeded) {
-                "Gemini API Quota reached on active models. Please check your AI Studio plan or retry later. ($lastErrorMessage)"
+            message = if (wasRateLimitOrQuota) {
+                "Gemini API rate limit or quota reached for all attempted models. Check API usage limits and retry later. ($lastErrorMessage)"
             } else {
                 "Error contacting AI provider: $lastErrorMessage"
             },
-            isQuotaExceeded = wasQuotaExceeded
+            isRateLimitOrQuota = wasRateLimitOrQuota
         )
     }
 
@@ -215,7 +219,7 @@ class GeminiApiClient {
         if (!response.isSuccessful) {
             Log.e(TAG, "Gemini API HTTP Error ${response.code} on model $modelName: $responseBodyString")
             if (response.code == 429 || responseBodyString.contains("RESOURCE_EXHAUSTED", ignoreCase = true)) {
-                return InternalCallResult.QuotaExceeded(responseBodyString)
+                return InternalCallResult.RateLimitOrQuota(responseBodyString)
             }
             return InternalCallResult.ApiError(response.code, responseBodyString)
         }
@@ -253,7 +257,7 @@ class GeminiApiClient {
 
     private sealed class InternalCallResult {
         data class Success(val text: String, val thoughts: String) : InternalCallResult()
-        data class QuotaExceeded(val message: String) : InternalCallResult()
+        data class RateLimitOrQuota(val message: String) : InternalCallResult()
         data class ApiError(val code: Int, val message: String) : InternalCallResult()
     }
 }
