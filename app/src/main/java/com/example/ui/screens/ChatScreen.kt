@@ -122,12 +122,10 @@ fun ChatScreen(viewModel: MainViewModel) {
     }
 
     val quickChips = listOf(
-        "⚡ JEE Physics: Lenz's Law with traps",
-        "🧪 JEE Chemistry: SN1 vs SN2 stability",
-        "📐 JEE Math: Integration by parts shortcut",
-        "💻 Android Kotlin: Coroutines best practices",
-        "🐧 Termux: Fresh development environment",
-        "🎯 JEE 2027: 45-min study sprint"
+        "⚡ Physics: FBD and common traps",
+        "🧪 Chemistry: SN1 vs SN2",
+        "📐 Maths: Integration",
+        "💻 Kotlin / Termux help"
     )
 
     Column(
@@ -205,7 +203,6 @@ fun ChatScreen(viewModel: MainViewModel) {
                     }
                 }
 
-                }
             }
         }
 
