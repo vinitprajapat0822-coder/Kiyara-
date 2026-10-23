@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.api.GeminiApiClient
 import com.example.data.api.GeminiResult
 import com.example.data.local.AppDatabase
+import com.example.data.local.DefaultDataSeeder
 import com.example.data.model.AuditLogEntry
 import com.example.data.model.ChatMessage
 import com.example.data.model.MemoryItem
@@ -97,38 +98,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Seed initial welcoming message & default study memories if DB is empty
+        // Seed first-run data atomically without duplicating existing memories.
         viewModelScope.launch(Dispatchers.IO) {
-            seedDefaultsIfEmpty()
+            DefaultDataSeeder(database).seedIfNeeded()
         }
-    }
-
-    private suspend fun seedDefaultsIfEmpty() {
-        val initialMessages = listOf(
-            ChatMessage(
-                role = "assistant",
-                content = "Namaste! Main hoon **KIARAA** (Codename: MR.V — Midnight Terminal). Aapka voice-first personal AI assistant aur operating layer.\n\nJEE 2027 prep (Physics, Chemistry, Math), coding, Termux commands, ya daily planning — bataiye aaj hum kya solve karein?",
-                mode = "general"
-            )
-        )
-        // Check if messages already exist
-        // Pre-populate initial system memory for JEE 2027 context
-        memoryDao.insertMemory(
-            MemoryItem(
-                category = "JEE Prep",
-                title = "Target Exam",
-                content = "Targeting JEE 2027 Mains & Advanced. Focus on deep concept clarity and speed accuracy.",
-                source = "System Initializer"
-            )
-        )
-        memoryDao.insertMemory(
-            MemoryItem(
-                category = "Preferences",
-                title = "Language Style",
-                content = "Conversational Hinglish by default. Concise explanations with structured 5-stage breakdowns.",
-                source = "User Confirmed"
-            )
-        )
     }
 
     fun setScreen(screen: AppScreen) {
@@ -219,10 +192,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             voiceManager.speak(localResponse)
                         }
                         _statusBanner.value = "Local Companion Mode: Add GEMINI_API_KEY in AI Studio Secrets for live AI."
-                    } else if (result.isQuotaExceeded) {
+                    } else if (result.isRateLimitOrQuota) {
                         // Resilient recovery: Answer using local reasoning engine so user is never blocked
                         val localResponse = generateLocalCompanionResponse(trimmed) +
-                            "\n\n*(ℹ️ Note: Gemini API free-tier quota is currently exhausted for gemini-4-argon (limit 0). KIARAA answered via on-device reasoning engine).* "
+                            "\n\n*(ℹ️ Note: Gemini API rate limit or quota was reached on available models. KIARAA answered using the local fallback engine.)*"
                         val assistantMsg = ChatMessage(
                             role = "assistant",
                             content = localResponse,
@@ -233,7 +206,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         if (fromVoice || _currentScreen.value == AppScreen.LIVE_BAAT) {
                             voiceManager.speak(localResponse)
                         }
-                        _statusBanner.value = "Quota limit: gemini-4-argon limit is 0 on free tier. Switched to local companion."
+                        _statusBanner.value = "Gemini API rate limit or quota reached. Switched to the local companion fallback."
                     } else {
                         val localResponse = generateLocalCompanionResponse(trimmed)
                         val assistantMsg = ChatMessage(
