@@ -74,6 +74,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
     val orbTheme by viewModel.orbTheme.collectAsState()
     val orbPulsation by viewModel.orbPulsationRate.collectAsState()
     val activeModel by viewModel.activeModelName.collectAsState()
+    val includeMemoryInAiContext by viewModel.includeMemoryInAiContext.collectAsState()
     val voiceState by viewModel.voiceManager.voiceState.collectAsState()
 
     LazyColumn(
@@ -260,6 +261,43 @@ fun SettingsScreen(viewModel: MainViewModel) {
                         fontSize = 11.sp,
                         color = TextMuted
                     )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Use Memory Vault in AI replies",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = CoolWhite
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = if (includeMemoryInAiContext) {
+                                    "On: up to 8 recent saved memories can be sent to Gemini with your prompt."
+                                } else {
+                                    "Off: saved memories stay on this device and are not added to Gemini prompts."
+                                },
+                                fontSize = 10.sp,
+                                color = TextMuted
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Switch(
+                            checked = includeMemoryInAiContext,
+                            onCheckedChange = { viewModel.setIncludeMemoryInAiContext(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = NeonCyan,
+                                checkedTrackColor = NeonCyan.copy(alpha = 0.3f),
+                                uncheckedThumbColor = TextDim,
+                                uncheckedTrackColor = SurfaceElevated
+                            )
+                        )
+                    }
                 }
             }
         }
