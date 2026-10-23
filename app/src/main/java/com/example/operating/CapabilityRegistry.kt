@@ -144,7 +144,7 @@ class CapabilityRegistry(
         CapabilityInfo(
             id = "system_settings",
             name = "Device Settings Controller",
-            description = "Modify device connectivity (Wi-Fi, Bluetooth, Screen Timeout).",
+            description = "Direct modification is not available in this standard-app handler. Use Open Android Settings to review and change settings yourself.",
             platform = "Android System Settings",
             riskLevel = RiskLevel.HIGH,
             status = CapabilityStatus.REQUIRES_INTEGRATION,
@@ -248,15 +248,15 @@ class CapabilityRegistry(
             }
             "haptic_pulse" -> {
                 val ok = triggerHaptic()
-                logAudit(capability, if (ok) "SUCCESS" else "FAILED", "Haptic pulse triggered on device.")
-                if (ok) ExecutionResult.Success("Haptic pulse transmitted successfully.")
-                else ExecutionResult.Error("Vibration hardware unavailable.")
+                logAudit(capability, if (ok) "SUCCESS" else "FAILED", "Haptic pulse request executed.")
+                if (ok) ExecutionResult.Success("Haptic pulse triggered.")
+                else ExecutionResult.Error("Vibration hardware unavailable or the system did not accept the request.")
             }
             "clipboard_copy" -> {
                 val ok = copyToClipboard(parameter)
-                logAudit(capability, if (ok) "SUCCESS" else "FAILED", "Copied ${parameter.length} chars to clipboard.")
-                if (ok) ExecutionResult.Success("Copied snippet to clipboard safely.")
-                else ExecutionResult.Error("Failed to write to clipboard.")
+                logAudit(capability, if (ok) "SUCCESS" else "FAILED", "Clipboard copy requested for ${parameter.length} characters.")
+                if (ok) ExecutionResult.Success("Copied snippet to clipboard.")
+                else ExecutionResult.Error("Could not access Android clipboard; nothing was copied.")
             }
             "study_timer" -> {
                 ExecutionResult.Blocked("The study timer is planned but not implemented in this build. No countdown was started.")
@@ -268,9 +268,10 @@ class CapabilityRegistry(
                     parameter.contains("update", ignoreCase = true) -> "pkg update && pkg upgrade -y"
                     else -> "pkg update -y && pkg install build-essential clang -y"
                 }
-                copyToClipboard(cmd)
-                logAudit(capability, "SUCCESS", "Generated & copied Termux command: $cmd")
-                ExecutionResult.Success("Termux command ready and copied to clipboard: `$cmd`", cmd)
+                val copied = copyToClipboard(cmd)
+                logAudit(capability, if (copied) "SUCCESS" else "FAILED", "Generated Termux command; clipboard copy=$copied.")
+                if (copied) ExecutionResult.Success("Termux command generated and copied to clipboard:", cmd)
+                else ExecutionResult.Error("Termux command was generated but could not be copied. No command was executed.")
             }
             "jee_solver" -> {
                 ExecutionResult.Blocked("The dedicated JEE tool handler is not implemented yet. Ask KIARAA in chat; no separate tool action was executed.")
@@ -347,17 +348,21 @@ class CapabilityRegistry(
 
     private fun triggerHaptic(): Boolean {
         return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-                vibratorManager?.defaultVibrator?.vibrate(VibrationEffect.createOneShot(80, VibrationEffect.DEFAULT_AMPLITUDE))
-                true
+            val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                manager?.defaultVibrator
             } else {
                 @Suppress("DEPRECATION")
-                val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            } ?: return false
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(80, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
                 @Suppress("DEPRECATION")
-                vibrator?.vibrate(80)
-                true
+                vibrator.vibrate(80)
             }
+            true
         } catch (e: Exception) {
             false
         }
@@ -366,8 +371,9 @@ class CapabilityRegistry(
     private fun copyToClipboard(text: String): Boolean {
         return try {
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                ?: return false
             val clip = ClipData.newPlainText("KIARAA AI", text)
-            clipboard?.setPrimaryClip(clip)
+            clipboard.setPrimaryClip(clip)
             true
         } catch (e: Exception) {
             false
