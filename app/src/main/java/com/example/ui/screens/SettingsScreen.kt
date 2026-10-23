@@ -1,5 +1,9 @@
 package com.example.ui.screens
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -63,14 +67,16 @@ import com.example.ui.theme.SurfaceElevated
 import com.example.ui.theme.SurfaceGlass
 import com.example.ui.theme.TextDim
 import com.example.ui.theme.TextMuted
+import com.example.ui.theme.VioletGlow
 import com.example.voice.VoiceState
 
 @Composable
 fun SettingsScreen(viewModel: MainViewModel) {
+    val context = LocalContext.current
     val orbTheme by viewModel.orbTheme.collectAsState()
     val orbPulsation by viewModel.orbPulsationRate.collectAsState()
-    val isHighThinking by viewModel.isHighThinking.collectAsState()
     val activeModel by viewModel.activeModelName.collectAsState()
+    val includeMemoryInAiContext by viewModel.includeMemoryInAiContext.collectAsState()
     val voiceState by viewModel.voiceManager.voiceState.collectAsState()
 
     LazyColumn(
@@ -221,107 +227,158 @@ fun SettingsScreen(viewModel: MainViewModel) {
             }
         }
 
-        // Gemini AI Provider Configuration
+        // Active model — no unsupported model selector or fake thinking toggle.
         item {
             LiquidGlassCard(
                 modifier = Modifier.fillMaxWidth(),
-                backgroundColor = SurfaceGlass
+                backgroundColor = SurfaceGlass,
+                borderColor = GlassBorderSubtle
             ) {
                 Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Key,
-                                contentDescription = "Provider",
-                                tint = HighThinkingAccent,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "AI Provider Architecture",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = HighThinkingAccent
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(HighThinkingAccent.copy(alpha = 0.2f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = activeModel,
-                                fontSize = 9.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = HighThinkingAccent
-                            )
-                        }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Key,
+                            contentDescription = "AI Provider",
+                            tint = NeonCyan,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "AI Provider",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = NeonCyan
+                        )
                     }
-
                     Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Active model: $activeModel",
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = CoolWhite
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "KIARAA uses the configured Gemini API key from AI Studio Secrets. If the request fails, the app reports the provider error and may use its local companion fallback.",
+                        fontSize = 11.sp,
+                        color = TextMuted
+                    )
 
+                    Spacer(modifier = Modifier.height(12.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "High Thinking Mode",
+                                text = "Use Memory Vault in AI replies",
                                 fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 color = CoolWhite
                             )
+                            Spacer(modifier = Modifier.height(3.dp))
                             Text(
-                                text = "Uses gemini-4-argon with thinkingLevel: HIGH",
-                                fontSize = 11.sp,
+                                text = if (includeMemoryInAiContext) {
+                                    "On: up to 8 recent saved memories can be sent to Gemini with your prompt."
+                                } else {
+                                    "Off: saved memories stay on this device and are not added to Gemini prompts."
+                                },
+                                fontSize = 10.sp,
                                 color = TextMuted
                             )
                         }
-
+                        Spacer(modifier = Modifier.width(8.dp))
                         Switch(
-                            checked = isHighThinking,
-                            onCheckedChange = { viewModel.toggleHighThinking() },
+                            checked = includeMemoryInAiContext,
+                            onCheckedChange = { viewModel.setIncludeMemoryInAiContext(it) },
                             colors = SwitchDefaults.colors(
-                                checkedThumbColor = HighThinkingAccent,
-                                checkedTrackColor = HighThinkingAccent.copy(alpha = 0.3f),
+                                checkedThumbColor = NeonCyan,
+                                checkedTrackColor = NeonCyan.copy(alpha = 0.3f),
                                 uncheckedThumbColor = TextDim,
                                 uncheckedTrackColor = SurfaceElevated
                             )
                         )
                     }
+                }
+            }
+        }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF0A0F1F))
-                            .padding(10.dp)
-                    ) {
-                        Column {
+        // Optional OS-granted permissions. KIARAA never enables these silently.
+        item {
+            LiquidGlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                backgroundColor = SurfaceGlass,
+                borderColor = GlassBorderCyan
+            ) {
+                Column {
+                    Text(
+                        text = "Device Access • Optional",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = NeonCyan
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Navigation, notification reading, and screen-brightness control each require manual Android approval. Navigation does not read screen contents. Notification text stays in memory and is not automatically sent to Gemini.",
+                        fontSize = 11.sp,
+                        color = TextMuted
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
+                            colors = ButtonDefaults.buttonColors(containerColor = NeonCyan.copy(alpha = 0.18f)),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+                        ) {
                             Text(
-                                text = "🔑 Secrets & Quota Management:",
-                                fontSize = 11.sp,
+                                text = "Navigation Setup",
+                                fontSize = 10.sp,
                                 fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold,
                                 color = NeonCyan
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+                        Button(
+                            onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
+                            colors = ButtonDefaults.buttonColors(containerColor = ElectricViolet.copy(alpha = 0.18f)),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+                        ) {
                             Text(
-                                text = "• API keys are securely read from AI Studio Secrets (GEMINI_API_KEY).\n• If gemini-4-argon free-tier quota is limit 0, KIARAA automatically falls back to gemini-3.8-flash and local reasoning to prevent 429 disruptions.",
+                                text = "Notification Access",
                                 fontSize = 10.sp,
-                                color = TextMuted
+                                fontFamily = FontFamily.Monospace,
+                                color = VioletGlow
                             )
                         }
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            val intent = Intent(
+                                Settings.ACTION_MANAGE_WRITE_SETTINGS,
+                                Uri.parse("package:${context.packageName}")
+                            )
+                            context.startActivity(intent)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldSuccess.copy(alpha = 0.16f)),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "Brightness Access",
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = EmeraldSuccess
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "You stay in control: each permission can be turned off any time in Android Settings.",
+                        fontSize = 10.sp,
+                        color = TextDim
+                    )
                 }
             }
         }

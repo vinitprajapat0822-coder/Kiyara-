@@ -198,6 +198,13 @@ fun CapabilitiesScreen(viewModel: MainViewModel) {
                                 "study_timer" -> "25"
                                 "clipboard_copy" -> "KIARAA Terminal Snippet: Verified"
                                 "termux_builder" -> "python"
+                                "open_app" -> "Settings"
+                                "open_system_settings" -> "wifi"
+                                "system_navigation" -> "back"
+                                "read_notifications" -> "read"
+                                "brightness_control" -> "50"
+                                "media_control" -> "toggle"
+                                "volume_control" -> "up"
                                 else -> "Standard parameter"
                             }
                             viewModel.triggerCapability(cap.id, param)

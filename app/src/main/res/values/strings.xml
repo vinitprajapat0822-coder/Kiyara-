@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">KIARAA AI</string>
+    <string name="kiaraa_accessibility_service_description">Allows only user-requested Back, Home, Recents, and notification-shade navigation. KIARAA does not read or record screen contents through this service.</string>
 </resources>

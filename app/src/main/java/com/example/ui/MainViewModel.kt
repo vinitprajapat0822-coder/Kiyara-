@@ -1,11 +1,13 @@
 package com.example.ui
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.api.GeminiApiClient
 import com.example.data.api.GeminiResult
 import com.example.data.local.AppDatabase
+import com.example.data.local.DefaultDataSeeder
 import com.example.data.model.AuditLogEntry
 import com.example.data.model.ChatMessage
 import com.example.data.model.MemoryItem
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -29,11 +32,13 @@ enum class AppScreen {
     JEE_HUB,
     MEMORY,
     CAPABILITIES,
-    SETTINGS
+    SETTINGS,
+    MORE
 }
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val preferences = application.getSharedPreferences("kiaraa_preferences", Context.MODE_PRIVATE)
     private val database = AppDatabase.getInstance(application)
     private val chatDao = database.chatDao()
     private val memoryDao = database.memoryDao()
@@ -59,18 +64,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val auditLogs: StateFlow<List<AuditLogEntry>> = auditDao.getAllLogs()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // UI & Thinking State
-    private val _isHighThinking = MutableStateFlow(true) // Default to High Thinking for deep JEE & reasoning
-    val isHighThinking: StateFlow<Boolean> = _isHighThinking.asStateFlow()
-
+    // UI state
     private val _inputText = MutableStateFlow("")
     val inputText: StateFlow<String> = _inputText.asStateFlow()
 
     private val _isGenerating = MutableStateFlow(false)
     val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
 
-    private val _activeModelName = MutableStateFlow(GeminiApiClient.MODEL_HIGH_THINKING)
+    private val _activeModelName = MutableStateFlow(GeminiApiClient.MODEL_DISPLAY_NAME)
     val activeModelName: StateFlow<String> = _activeModelName.asStateFlow()
+
+    // Private memories stay local by default. Sharing them with Gemini requires explicit opt-in.
+    private val _includeMemoryInAiContext = MutableStateFlow(
+        preferences.getBoolean(PREF_INCLUDE_MEMORY_IN_AI_CONTEXT, false)
+    )
+    val includeMemoryInAiContext: StateFlow<Boolean> = _includeMemoryInAiContext.asStateFlow()
 
     private val _isKeyMissing = MutableStateFlow(false)
     val isKeyMissing: StateFlow<Boolean> = _isKeyMissing.asStateFlow()
@@ -81,6 +89,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Confirmation dialog for risk-classified operations
     private val _pendingConfirmation = MutableStateFlow<Pair<CapabilityInfo, String>?>(null)
     val pendingConfirmation: StateFlow<Pair<CapabilityInfo, String>?> = _pendingConfirmation.asStateFlow()
+    private var pendingActionNeedsSpeech = false
 
     // Orb customization
     private val _orbTheme = MutableStateFlow(OrbVisualTheme.MIDNIGHT_TERMINAL)
@@ -97,38 +106,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Seed initial welcoming message & default study memories if DB is empty
+        // Seed first-run data atomically without duplicating existing memories.
         viewModelScope.launch(Dispatchers.IO) {
-            seedDefaultsIfEmpty()
+            DefaultDataSeeder(database).seedIfNeeded()
         }
-    }
-
-    private suspend fun seedDefaultsIfEmpty() {
-        val initialMessages = listOf(
-            ChatMessage(
-                role = "assistant",
-                content = "Namaste! Main hoon **KIARAA** (Codename: MR.V — Midnight Terminal). Aapka voice-first personal AI assistant aur operating layer.\n\nJEE 2027 prep (Physics, Chemistry, Math), coding, Termux commands, ya daily planning — bataiye aaj hum kya solve karein?",
-                mode = "general"
-            )
-        )
-        // Check if messages already exist
-        // Pre-populate initial system memory for JEE 2027 context
-        memoryDao.insertMemory(
-            MemoryItem(
-                category = "JEE Prep",
-                title = "Target Exam",
-                content = "Targeting JEE 2027 Mains & Advanced. Focus on deep concept clarity and speed accuracy.",
-                source = "System Initializer"
-            )
-        )
-        memoryDao.insertMemory(
-            MemoryItem(
-                category = "Preferences",
-                title = "Language Style",
-                content = "Conversational Hinglish by default. Concise explanations with structured 5-stage breakdowns.",
-                source = "User Confirmed"
-            )
-        )
     }
 
     fun setScreen(screen: AppScreen) {
@@ -139,10 +120,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _inputText.value = text
     }
 
-    fun toggleHighThinking() {
-        val next = !_isHighThinking.value
-        _isHighThinking.value = next
-        _activeModelName.value = if (next) GeminiApiClient.MODEL_HIGH_THINKING else GeminiApiClient.MODEL_FAST
+    fun setIncludeMemoryInAiContext(enabled: Boolean) {
+        _includeMemoryInAiContext.value = enabled
+        preferences.edit().putBoolean(PREF_INCLUDE_MEMORY_IN_AI_CONTEXT, enabled).apply()
+        _statusBanner.value = if (enabled) {
+            "Memory context enabled. Recent saved memories may be sent to Gemini with future prompts."
+        } else {
+            "Memory context disabled. Saved memories remain on this device and are not added to Gemini prompts."
+        }
+    }
+
+    private suspend fun buildSystemPromptWithMemory(): String {
+        val savedMemories = memoryDao.getAllMemories()
+            .first()
+            .filter { it.isPersistent }
+            .take(8)
+
+        if (savedMemories.isEmpty()) return GeminiApiClient.KIARAA_SYSTEM_PROMPT
+
+        val memoryContext = savedMemories.joinToString("\n") { item ->
+            "- [${item.category}] ${item.title}: ${item.content.replace(Regex("\\s+"), " ").take(220)}"
+        }
+
+        return """
+            ${GeminiApiClient.KIARAA_SYSTEM_PROMPT}
+
+            User-authorized Memory Vault context (only use when relevant; treat as private user-provided context):
+            $memoryContext
+
+            Memory privacy rule: this context was included because the user explicitly enabled it in Settings.
+            Do not reveal it unnecessarily, and never treat a stored memory as permission to perform a device action.
+        """.trimIndent().take(12000)
     }
 
     fun setOrbTheme(theme: OrbVisualTheme) {
@@ -161,6 +169,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val trimmed = userText.trim()
         if (trimmed.isEmpty() || _isGenerating.value) return
 
+        val deviceCommand = parseDeviceCommand(trimmed)
+        if (deviceCommand != null) {
+            _inputText.value = ""
+            triggerCapability(deviceCommand.first, deviceCommand.second, speakResult = fromVoice)
+            return
+        }
+
         _inputText.value = ""
         _isGenerating.value = true
 
@@ -169,7 +184,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val userMsg = ChatMessage(
                 role = "user",
                 content = trimmed,
-                mode = if (_isHighThinking.value) "high_thinking" else "general"
+                mode = "general"
             )
             chatDao.insertMessage(userMsg)
 
@@ -177,16 +192,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val historyList = messages.value.takeLast(6).map { Pair(it.role, it.content) }
 
             // 3. Request Gemini API (or local companion fallback if key missing)
+            val systemPrompt = if (_includeMemoryInAiContext.value) {
+                buildSystemPromptWithMemory()
+            } else {
+                null
+            }
             val result = geminiClient.generateResponse(
                 prompt = trimmed,
-                enableHighThinking = _isHighThinking.value,
-                conversationHistory = historyList
+                conversationHistory = historyList,
+                customSystemPrompt = systemPrompt
             )
 
             when (result) {
                 is GeminiResult.Success -> {
                     _isKeyMissing.value = false
-                    _activeModelName.value = result.modelUsed
+                    _activeModelName.value = GeminiApiClient.MODEL_DISPLAY_NAME
                     if (result.fallbackNotice != null) {
                         _statusBanner.value = result.fallbackNotice
                     }
@@ -195,7 +215,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         content = result.text,
                         isThinking = result.thoughts.isNotEmpty(),
                         thoughts = result.thoughts,
-                        mode = if (_isHighThinking.value) "high_thinking" else "general"
+                        mode = "general"
                     )
                     chatDao.insertMessage(assistantMsg)
 
@@ -219,10 +239,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             voiceManager.speak(localResponse)
                         }
                         _statusBanner.value = "Local Companion Mode: Add GEMINI_API_KEY in AI Studio Secrets for live AI."
-                    } else if (result.isQuotaExceeded) {
+                    } else if (result.isRateLimitOrQuota) {
                         // Resilient recovery: Answer using local reasoning engine so user is never blocked
                         val localResponse = generateLocalCompanionResponse(trimmed) +
-                            "\n\n*(ℹ️ Note: Gemini API free-tier quota is currently exhausted for gemini-4-argon (limit 0). KIARAA answered via on-device reasoning engine).* "
+                            "\n\n*(ℹ️ Note: Gemini API rate limit or quota was reached on available models. KIARAA answered using the local fallback engine.)*"
                         val assistantMsg = ChatMessage(
                             role = "assistant",
                             content = localResponse,
@@ -233,7 +253,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         if (fromVoice || _currentScreen.value == AppScreen.LIVE_BAAT) {
                             voiceManager.speak(localResponse)
                         }
-                        _statusBanner.value = "Quota limit: gemini-4-argon limit is 0 on free tier. Switched to local companion."
+                        _statusBanner.value = "Gemini API rate limit or quota reached. Switched to the local companion fallback."
                     } else {
                         val localResponse = generateLocalCompanionResponse(trimmed)
                         val assistantMsg = ChatMessage(
@@ -305,8 +325,72 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 
                 Main aapke JEE preparation (Physics, Chemistry, Math), coding, Android development, aur schedule management ke liye fully ready hoon.
                 
-                *(Note: Real-time Gemini 4-Argon reasoning requires configuring GEMINI_API_KEY in the AI Studio Secrets panel).*
+                *(Configure GEMINI_API_KEY in AI Studio Secrets for live Gemini responses.)*
             """.trimIndent()
+        }
+    }
+
+    private fun parseDeviceCommand(input: String): Pair<String, String>? {
+        val command = input.trim().lowercase().replace(Regex("\\s+"), " ")
+        val brightnessMatch = Regex(
+            "^(?:set )?(?:screen )?brightness(?: to)?\\s+(\\d{1,3})(?:\\s*%| percent)?$"
+        ).matchEntire(command)
+
+        if (brightnessMatch != null) {
+            return "brightness_control" to brightnessMatch.groupValues[1]
+        }
+
+        return when {
+            command in setOf("back", "go back", "press back", "navigate back", "back jao", "wapas jao") ->
+                "system_navigation" to "back"
+            command in setOf("home", "go home", "home screen", "home par jao", "home screen kholo") ->
+                "system_navigation" to "home"
+            command in setOf("recent apps", "open recent apps", "show recent apps", "recents") ->
+                "system_navigation" to "recents"
+            command in setOf("show notifications", "open notification shade", "notification panel kholo") ->
+                "system_navigation" to "notifications"
+            command in setOf("read notifications", "read my notifications", "notifications padh do", "notification padh ke sunao") ->
+                "read_notifications" to "read"
+            command in setOf("volume up", "increase volume", "volume badhao", "awaaz badhao") ->
+                "volume_control" to "up"
+            command in setOf("volume down", "decrease volume", "volume kam karo", "awaaz kam karo") ->
+                "volume_control" to "down"
+            command in setOf("mute", "mute volume", "media mute") ->
+                "volume_control" to "mute"
+            command in setOf("brightness up", "increase brightness", "screen brightness up", "brightness badhao") ->
+                "brightness_control" to "up"
+            command in setOf("brightness down", "decrease brightness", "screen brightness down", "brightness kam karo") ->
+                "brightness_control" to "down"
+            command in setOf("maximum brightness", "brightness maximum", "brightness max", "max brightness") ->
+                "brightness_control" to "100"
+            command in setOf("minimum brightness", "brightness minimum", "brightness min", "min brightness") ->
+                "brightness_control" to "5"
+            command in setOf("play pause", "play/pause", "toggle media", "toggle music", "pause music", "play media", "pause media", "resume music") ->
+                "media_control" to "toggle"
+            command.startsWith("open wifi settings") || command.startsWith("open wi-fi settings") ||
+                command == "wifi settings" || command == "wi-fi settings" ->
+                "open_system_settings" to "wifi"
+            command.startsWith("open bluetooth settings") || command == "bluetooth settings" ->
+                "open_system_settings" to "bluetooth"
+            command.startsWith("open display settings") || command == "display settings" ->
+                "open_system_settings" to "display"
+            command.startsWith("open sound settings") || command == "sound settings" ->
+                "open_system_settings" to "sound"
+            command.startsWith("open accessibility settings") || command == "accessibility settings" ->
+                "open_system_settings" to "accessibility"
+            command.startsWith("open notification access settings") || command == "notification access settings" ->
+                "open_system_settings" to "notifications"
+            command.startsWith("open app settings") || command == "installed apps" ->
+                "open_system_settings" to "apps"
+            command.startsWith("open battery settings") || command == "battery settings" ->
+                "open_system_settings" to "battery"
+            command.startsWith("open location settings") || command == "location settings" ->
+                "open_system_settings" to "location"
+            command.startsWith("open ") && command.removePrefix("open ").trim().isNotBlank() ->
+                "open_app" to command.removePrefix("open ").trim()
+            command.startsWith("launch ") && command.removePrefix("launch ").trim().isNotBlank() ->
+                "open_app" to command.removePrefix("launch ").trim()
+            else -> null
         }
     }
 
@@ -347,21 +431,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Capability Executions
-    fun triggerCapability(capabilityId: String, parameter: String) {
+    fun triggerCapability(
+        capabilityId: String,
+        parameter: String,
+        speakResult: Boolean = false
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             val result = capabilityRegistry.executeCapability(capabilityId, parameter, confirmedByUser = false)
             when (result) {
                 is ExecutionResult.RequiresConfirmation -> {
                     _pendingConfirmation.value = Pair(result.capability, result.parameter)
+                    pendingActionNeedsSpeech = speakResult || _currentScreen.value == AppScreen.LIVE_BAAT
+                    if (pendingActionNeedsSpeech) voiceManager.speak("Please confirm this action in KIARAA before it runs.")
                 }
                 is ExecutionResult.Success -> {
-                    _statusBanner.value = result.message
+                    _statusBanner.value = if (result.details.isBlank()) result.message else "${result.message}\n${result.details}"
+                    if (speakResult || _currentScreen.value == AppScreen.LIVE_BAAT) {
+                        val spokenResult = if (result.details.isBlank()) result.message else "${result.message}\n${result.details}"
+                        voiceManager.speak(spokenResult)
+                    }
                 }
                 is ExecutionResult.Blocked -> {
                     _statusBanner.value = result.reason
+                    if (speakResult || _currentScreen.value == AppScreen.LIVE_BAAT) voiceManager.speak(result.reason)
                 }
                 is ExecutionResult.Error -> {
                     _statusBanner.value = "Error: ${result.error}"
+                    if (speakResult || _currentScreen.value == AppScreen.LIVE_BAAT) voiceManager.speak("Action failed: ${result.error}")
                 }
             }
         }
@@ -369,20 +465,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun confirmPendingAction() {
         val pending = _pendingConfirmation.value ?: return
+        val shouldSpeak = pendingActionNeedsSpeech || _currentScreen.value == AppScreen.LIVE_BAAT
+        pendingActionNeedsSpeech = false
         _pendingConfirmation.value = null
         viewModelScope.launch(Dispatchers.IO) {
             val result = capabilityRegistry.executeCapability(pending.first.id, pending.second, confirmedByUser = true)
             when (result) {
-                is ExecutionResult.Success -> _statusBanner.value = result.message
-                is ExecutionResult.Blocked -> _statusBanner.value = result.reason
-                is ExecutionResult.Error -> _statusBanner.value = "Error: ${result.error}"
+                is ExecutionResult.Success -> {
+                    _statusBanner.value = if (result.details.isBlank()) result.message else "${result.message}\n${result.details}"
+                    if (shouldSpeak) {
+                        val spokenResult = if (result.details.isBlank()) result.message else "${result.message}\n${result.details}"
+                        voiceManager.speak(spokenResult)
+                    }
+                }
+                is ExecutionResult.Blocked -> {
+                    _statusBanner.value = result.reason
+                    if (shouldSpeak) voiceManager.speak(result.reason)
+                }
+                is ExecutionResult.Error -> {
+                    _statusBanner.value = "Error: ${result.error}"
+                    if (shouldSpeak) voiceManager.speak("Action failed: ${result.error}")
+                }
                 else -> {}
             }
         }
     }
 
     fun dismissConfirmation() {
+        pendingActionNeedsSpeech = false
         _pendingConfirmation.value = null
+    }
+
+    companion object {
+        private const val PREF_INCLUDE_MEMORY_IN_AI_CONTEXT = "include_memory_in_ai_context"
     }
 
     override fun onCleared() {

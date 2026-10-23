@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Warning
@@ -71,6 +72,7 @@ import com.example.ui.screens.ChatScreen
 import com.example.ui.screens.JeeHubScreen
 import com.example.ui.screens.LiveBaatScreen
 import com.example.ui.screens.MemoryScreen
+import com.example.ui.screens.MoreScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.AmberWarning
 import com.example.ui.theme.CoolWhite
@@ -139,6 +141,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                 AppScreen.MEMORY -> MemoryScreen(viewModel = viewModel)
                 AppScreen.CAPABILITIES -> CapabilitiesScreen(viewModel = viewModel)
                 AppScreen.SETTINGS -> SettingsScreen(viewModel = viewModel)
+                AppScreen.MORE -> MoreScreen(onSelectScreen = { viewModel.setScreen(it) })
             }
 
             // Top Status / Notification Banner
@@ -283,12 +286,10 @@ fun KiaraaNavigationBar(
             .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
     ) {
         val navItems = listOf(
-            Triple(AppScreen.TERMINAL, "Terminal", Icons.Default.Terminal),
-            Triple(AppScreen.LIVE_BAAT, "Live Baat", Icons.Default.Hearing),
-            Triple(AppScreen.JEE_HUB, "JEE 2027", Icons.Default.School),
-            Triple(AppScreen.MEMORY, "Memory", Icons.Default.Storage),
-            Triple(AppScreen.CAPABILITIES, "Tools", Icons.Default.Security),
-            Triple(AppScreen.SETTINGS, "Studio", Icons.Default.ColorLens)
+            Triple(AppScreen.TERMINAL, "Chat", Icons.Default.Terminal),
+            Triple(AppScreen.LIVE_BAAT, "Voice", Icons.Default.Hearing),
+            Triple(AppScreen.JEE_HUB, "JEE", Icons.Default.School),
+            Triple(AppScreen.MORE, "More", Icons.Default.Settings)
         )
 
         navItems.forEach { (screen, label, icon) ->

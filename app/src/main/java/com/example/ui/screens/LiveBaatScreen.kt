@@ -127,7 +127,7 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
                     .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = "Live Baat (Realtime)",
+                    text = "Live Baat (Voice)",
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
