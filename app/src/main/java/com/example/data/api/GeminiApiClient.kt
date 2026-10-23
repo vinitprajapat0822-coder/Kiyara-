@@ -40,13 +40,7 @@ class GeminiApiClient {
 
     companion object {
         const val TAG = "GeminiApiClient"
-        const val MODEL_HIGH_THINKING = "gemini-4-argon"
-        const val MODEL_RECOMMENDED = "gemini-3.8-flash"
         const val MODEL_FAST = "gemini-3.5-flash-lite"
-
-        // Skip the high-thinking model in this process only after an explicit quota-exhaustion response.
-        @Volatile
-        var isHighThinkingModelQuotaLimited = false
 
         val KIARAA_SYSTEM_PROMPT = """
             You are KIARAA AI (Project Codename: MR.V — Midnight Terminal).
@@ -65,107 +59,61 @@ class GeminiApiClient {
             - You also assist with Android development, Kotlin, Jetpack Compose, Termux commands, Linux scripting, and daily productivity.
             - Truthful & Transparent: Never invent facts or claim actions succeeded without verification. If unsure, state limitations honestly.
             - Supportive AI companion without falsely claiming consciousness or emotional dependency.
+            - Device actions are limited to explicit user commands, declared capabilities, and OS-granted permissions.
+            - Never claim a phone action succeeded unless the Android API confirms it; never execute guessed or hidden actions.
+            - Notification access, when enabled by the user, remains in local app memory and is not automatically sent to the Gemini API.
+            - Saathi and Live Baat use the app's configured speech recognition and text-to-speech pipeline; do not claim true bidirectional Gemini Live streaming.
         """.trimIndent()
     }
 
     suspend fun generateResponse(
         prompt: String,
-        enableHighThinking: Boolean = false,
         conversationHistory: List<Pair<String, String>> = emptyList(),
         customSystemPrompt: String? = null
     ): GeminiResult = withContext(Dispatchers.IO) {
         val apiKey = BuildConfig.GEMINI_API_KEY?.trim() ?: ""
         if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
             return@withContext GeminiResult.Error(
-                message = "Gemini API key is not configured. Please add GEMINI_API_KEY to the AI Studio Secrets panel. Operating in local companion mode.",
+                message = "Gemini API key is not configured. Add GEMINI_API_KEY in AI Studio Secrets. KIARAA can still answer with its local companion fallback.",
                 isKeyMissing = true
             )
         }
 
-        // Determine priority models to attempt
-        val modelsToTry = mutableListOf<Pair<String, Boolean>>() // (modelName, withThinking)
-
-        if (enableHighThinking && !isHighThinkingModelQuotaLimited) {
-            // First attempt specified gemini-4-argon
-            modelsToTry.add(Pair(MODEL_HIGH_THINKING, true))
-        }
-
-        // Resilient fallbacks: Gemini 3.8 Flash with thinking, standard Gemini 3.8 Flash, then Gemini 3.5 Flash-Lite.
-        if (enableHighThinking) {
-            modelsToTry.add(Pair(MODEL_RECOMMENDED, true))
-        }
-        modelsToTry.add(Pair(MODEL_RECOMMENDED, false))
-        modelsToTry.add(Pair(MODEL_FAST, false))
-
-        var lastErrorMessage = ""
-        var wasRateLimitOrQuota = false
-
-        for ((modelName, useThinking) in modelsToTry) {
-            try {
+        try {
+            when (
                 val callResult = executeModelCall(
                     apiKey = apiKey,
-                    modelName = modelName,
+                    modelName = MODEL_FAST,
                     prompt = prompt,
-                    useThinking = useThinking,
                     conversationHistory = conversationHistory,
                     customSystemPrompt = customSystemPrompt
                 )
-
-                when (callResult) {
-                    is InternalCallResult.Success -> {
-                        val fallbackNotice = if (enableHighThinking && modelName != MODEL_HIGH_THINKING) {
-                            "High-thinking model did not return a usable response; automatically routed this request to $modelName."
-                        } else null
-
-                        return@withContext GeminiResult.Success(
-                            text = callResult.text,
-                            thoughts = callResult.thoughts,
-                            modelUsed = modelName,
-                            fallbackNotice = fallbackNotice
-                        )
-                    }
-                    is InternalCallResult.RateLimitOrQuota -> {
-                        wasRateLimitOrQuota = true
-                        lastErrorMessage = callResult.message
-                        if (
-                            modelName == MODEL_HIGH_THINKING &&
-                            (callResult.message.contains("RESOURCE_EXHAUSTED", ignoreCase = true) ||
-                                callResult.message.contains("quota", ignoreCase = true))
-                        ) {
-                            // Skip retries only after the API explicitly reports quota exhaustion.
-                            isHighThinkingModelQuotaLimited = true
-                            Log.w(TAG, "$MODEL_HIGH_THINKING reported quota exhaustion. Using fallback models for the rest of this process.")
-                        }
-                        // Continue loop to try next model in fallback list
-                    }
-                    is InternalCallResult.ApiError -> {
-                        lastErrorMessage = callResult.message
-                        Log.w(TAG, "Model $modelName error: ${callResult.code} - ${callResult.message}. Trying next fallback...")
-                        // Continue loop to try next fallback
-                    }
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "Exception calling $modelName", e)
-                lastErrorMessage = e.localizedMessage ?: "Unknown network error"
+            ) {
+                is InternalCallResult.Success -> GeminiResult.Success(
+                    text = callResult.text,
+                    thoughts = callResult.thoughts,
+                    modelUsed = MODEL_FAST
+                )
+                is InternalCallResult.RateLimitOrQuota -> GeminiResult.Error(
+                    message = "Gemini rate limit or quota was reached for $MODEL_FAST. Check API usage and try again. (${callResult.message})",
+                    isRateLimitOrQuota = true
+                )
+                is InternalCallResult.ApiError -> GeminiResult.Error(
+                    message = "Gemini API returned HTTP ${callResult.code} for $MODEL_FAST: ${callResult.message.take(500)}"
+                )
             }
+        } catch (e: Exception) {
+            Log.w(TAG, "Request failed for $MODEL_FAST", e)
+            GeminiResult.Error(
+                message = "Could not reach Gemini: ${e.localizedMessage ?: "network error"}"
+            )
         }
-
-        // If all remote models failed or quota exceeded
-        return@withContext GeminiResult.Error(
-            message = if (wasRateLimitOrQuota) {
-                "At least one Gemini model returned a rate-limit or quota response, and no fallback succeeded. Check API usage limits and retry later. ($lastErrorMessage)"
-            } else {
-                "Error contacting AI provider: $lastErrorMessage"
-            },
-            isRateLimitOrQuota = wasRateLimitOrQuota
-        )
     }
 
     private fun executeModelCall(
         apiKey: String,
         modelName: String,
         prompt: String,
-        useThinking: Boolean,
         conversationHistory: List<Pair<String, String>>,
         customSystemPrompt: String?
     ): InternalCallResult {
@@ -196,15 +144,8 @@ class GeminiApiClient {
 
         rootPayload.put("contents", contentsArray)
 
-        // Generation Config
-        val genConfig = JSONObject()
-        if (useThinking) {
-            val thinkingConfig = JSONObject()
-            thinkingConfig.put("thinkingLevel", "HIGH")
-            genConfig.put("thinkingConfig", thinkingConfig)
-        } else {
-            genConfig.put("temperature", 0.7)
-        }
+        // Use the same known-working model configuration for every request.
+        val genConfig = JSONObject().put("temperature", 0.7)
         rootPayload.put("generationConfig", genConfig)
 
         val requestBody = rootPayload.toString().toRequestBody(jsonMediaType)
