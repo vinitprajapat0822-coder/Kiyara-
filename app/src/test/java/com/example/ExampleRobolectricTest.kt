@@ -59,6 +59,7 @@ class ExampleRobolectricTest {
       assertTrue(capabilities.containsKey("system_navigation"))
       assertTrue(capabilities.containsKey("read_notifications"))
       assertTrue(capabilities.containsKey("volume_control"))
+      assertTrue(capabilities.containsKey("brightness_control"))
       assertTrue(capabilities.containsKey("media_control"))
       assertEquals(com.example.operating.CapabilityStatus.PLANNED, capabilities["study_timer"]?.status)
       assertEquals(com.example.operating.CapabilityStatus.PLANNED, capabilities["jee_solver"]?.status)
