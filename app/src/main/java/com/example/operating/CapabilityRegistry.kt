@@ -3,6 +3,11 @@ package com.example.operating
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.media.AudioManager
+import android.provider.Settings
+import com.example.operating.accessibility.KiaraaAccessibilityService
+import com.example.operating.accessibility.KiaraaNotificationListenerService
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -45,23 +50,23 @@ class CapabilityRegistry(
     private val context: Context,
     private val auditDao: AuditDao
 ) {
-    val capabilities = listOf(
+    private val capabilityCatalog = listOf(
         CapabilityInfo(
             id = "jee_solver",
             name = "JEE Problem Step-Solver",
-            description = "Deconstructs complex Physics, Chemistry, and Math questions into concept, formula, application, and common traps.",
-            platform = "On-Device / AI Core",
+            description = "Dedicated direct tool execution is not wired yet; use KIARAA chat for concept, formula, application, and common traps.",
+            platform = "KIARAA AI Core",
             riskLevel = RiskLevel.LOW,
-            status = CapabilityStatus.AVAILABLE,
+            status = CapabilityStatus.PLANNED,
             verificationStrategy = "Pedagogical dimensional & consistency check"
         ),
         CapabilityInfo(
             id = "study_timer",
             name = "JEE Study Sprint Timer",
-            description = "Configures 25m focus sprint or 45m JEE Advanced mock slot with haptic completion cue.",
+            description = "A real countdown/foreground timer is not wired in this build; no timer will be falsely reported as started.",
             platform = "Android Foreground",
             riskLevel = RiskLevel.LOW,
-            status = CapabilityStatus.AVAILABLE,
+            status = CapabilityStatus.PLANNED,
             verificationStrategy = "System chronometer verification"
         ),
         CapabilityInfo(
@@ -92,6 +97,51 @@ class CapabilityRegistry(
             verificationStrategy = "Syntax & safety sandbox scan"
         ),
         CapabilityInfo(
+            id = "open_app",
+            name = "Open Installed App",
+            description = "Opens an installed app by its visible launcher name. KIARAA does not force-close other apps.",
+            platform = "Android Package Manager",
+            riskLevel = RiskLevel.LOW,
+            status = CapabilityStatus.AVAILABLE,
+            verificationStrategy = "Resolved launcher activity and startActivity request"
+        ),
+        CapabilityInfo(
+            id = "open_system_settings",
+            name = "Open Android Settings",
+            description = "Opens a selected Android settings page. The user makes the actual setting change inside Android.",
+            platform = "Android Settings Intents",
+            riskLevel = RiskLevel.LOW,
+            status = CapabilityStatus.AVAILABLE,
+            verificationStrategy = "System settings activity start"
+        ),
+        CapabilityInfo(
+            id = "system_navigation",
+            name = "User-Requested System Navigation",
+            description = "Performs Back, Home, Recents, or notification-shade navigation only after explicit user input and manual OS permission enablement.",
+            platform = "Android Accessibility Service",
+            riskLevel = RiskLevel.MEDIUM,
+            status = CapabilityStatus.REQUIRES_PERMISSION,
+            verificationStrategy = "Android global-action return value"
+        ),
+        CapabilityInfo(
+            id = "read_notifications",
+            name = "Read Active Notifications",
+            description = "Reads active notification summaries only after notification-access approval. Content stays in memory and is not automatically sent to Gemini.",
+            platform = "Android Notification Listener",
+            riskLevel = RiskLevel.MEDIUM,
+            status = CapabilityStatus.REQUIRES_PERMISSION,
+            verificationStrategy = "Notification-listener connection and in-memory snapshot"
+        ),
+        CapabilityInfo(
+            id = "volume_control",
+            name = "Media Volume Control",
+            description = "Raises, lowers, or mutes music-stream volume after explicit confirmation.",
+            platform = "Android AudioManager",
+            riskLevel = RiskLevel.MEDIUM,
+            status = CapabilityStatus.AVAILABLE,
+            verificationStrategy = "AudioManager adjustment request"
+        ),
+        CapabilityInfo(
             id = "system_settings",
             name = "Device Settings Controller",
             description = "Modify device connectivity (Wi-Fi, Bluetooth, Screen Timeout).",
@@ -110,6 +160,21 @@ class CapabilityRegistry(
             verificationStrategy = "Zero-knowledge cryptographic handshake"
         )
     )
+
+    val capabilities: List<CapabilityInfo>
+        get() = capabilityCatalog.map { capability ->
+            when (capability.id) {
+                "system_navigation" -> capability.copy(
+                    status = if (KiaraaAccessibilityService.isEnabled(context)) CapabilityStatus.AVAILABLE
+                    else CapabilityStatus.REQUIRES_PERMISSION
+                )
+                "read_notifications" -> capability.copy(
+                    status = if (KiaraaNotificationListenerService.isAccessGranted(context)) CapabilityStatus.AVAILABLE
+                    else CapabilityStatus.REQUIRES_PERMISSION
+                )
+                else -> capability
+            }
+        }
 
     suspend fun executeCapability(
         capabilityId: String,
@@ -140,6 +205,47 @@ class CapabilityRegistry(
 
         // Execute available tools
         return when (capability.id) {
+            "open_app" -> {
+                val openedApp = openInstalledApp(parameter)
+                logAudit(capability, if (openedApp != null) "SUCCESS" else "FAILED", "Requested app launch: $parameter")
+                if (openedApp != null) ExecutionResult.Success("Opened $openedApp.")
+                else ExecutionResult.Error("No launchable app matched '$parameter'. No app was opened.")
+            }
+            "open_system_settings" -> {
+                val settingName = openSystemSettings(parameter)
+                logAudit(capability, if (settingName != null) "SUCCESS" else "FAILED", "Requested Android settings page: $parameter")
+                if (settingName != null) ExecutionResult.Success("Opened $settingName. Change the setting inside Android; KIARAA did not change it silently.")
+                else ExecutionResult.Error("Could not open that Android settings page.")
+            }
+            "system_navigation" -> {
+                val performed = KiaraaAccessibilityService.performUserAction(context, parameter)
+                logAudit(capability, if (performed) "SUCCESS" else "BLOCKED", "User-requested navigation action: $parameter")
+                if (performed) ExecutionResult.Success("Android navigation action completed: $parameter.")
+                else ExecutionResult.Blocked("Navigation was not performed. Enable KIARAA navigation in Android Settings > Accessibility, then try again.")
+            }
+            "read_notifications" -> {
+                if (!KiaraaNotificationListenerService.isAccessGranted(context)) {
+                    ExecutionResult.Blocked("Notification access is off. Open More > Personalization & Privacy > Notification Access to enable it manually.")
+                } else {
+                    val summaries = KiaraaNotificationListenerService.currentNotificationSummaries()
+                    if (summaries == null) {
+                        ExecutionResult.Blocked("Android has not connected the notification listener yet. On some Android 10 low-RAM devices, notification listeners may be restricted.")
+                    } else if (summaries.isEmpty()) {
+                        logAudit(capability, "SUCCESS", "Notification access checked; no active notification summaries available.")
+                        ExecutionResult.Success("No active notifications are currently available to read.")
+                    } else {
+                        val localSummary = summaries.takeLast(12).joinToString("\n").take(1600)
+                        logAudit(capability, "SUCCESS", "Read ${summaries.size} active notification summaries in memory.")
+                        ExecutionResult.Success("Active notification summaries (kept local; not sent to Gemini):", localSummary)
+                    }
+                }
+            }
+            "volume_control" -> {
+                val changed = adjustMediaVolume(parameter)
+                logAudit(capability, if (changed) "SUCCESS" else "FAILED", "Media volume action requested: $parameter")
+                if (changed) ExecutionResult.Success("Media volume action requested: $parameter.")
+                else ExecutionResult.Error("Unknown volume action. Use up, down, or mute.")
+            }
             "haptic_pulse" -> {
                 val ok = triggerHaptic()
                 logAudit(capability, if (ok) "SUCCESS" else "FAILED", "Haptic pulse triggered on device.")
@@ -153,9 +259,7 @@ class CapabilityRegistry(
                 else ExecutionResult.Error("Failed to write to clipboard.")
             }
             "study_timer" -> {
-                val duration = parameter.toIntOrNull() ?: 25
-                logAudit(capability, "SUCCESS", "Timer initialized for $duration minutes.")
-                ExecutionResult.Success("Study sprint started for $duration minutes. Stay focused!", "Timer active: $duration mins")
+                ExecutionResult.Blocked("The study timer is planned but not implemented in this build. No countdown was started.")
             }
             "termux_builder" -> {
                 val cmd = when {
@@ -169,10 +273,75 @@ class CapabilityRegistry(
                 ExecutionResult.Success("Termux command ready and copied to clipboard: `$cmd`", cmd)
             }
             "jee_solver" -> {
-                logAudit(capability, "SUCCESS", "Processed JEE structural request: $parameter")
-                ExecutionResult.Success("JEE Solver ready. Framework activated for: $parameter")
+                ExecutionResult.Blocked("The dedicated JEE tool handler is not implemented yet. Ask KIARAA in chat; no separate tool action was executed.")
             }
             else -> ExecutionResult.Error("Handler not implemented.")
+        }
+    }
+
+    private fun openInstalledApp(requestedName: String): String? {
+        val requested = requestedName.trim()
+        if (requested.isBlank()) return null
+        return try {
+            val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            val activities = context.packageManager.queryIntentActivities(launcherIntent, 0)
+            val match = activities.firstOrNull { info ->
+                val label = info.loadLabel(context.packageManager).toString()
+                label.equals(requested, ignoreCase = true) ||
+                    info.activityInfo.packageName.equals(requested, ignoreCase = true)
+            } ?: activities.firstOrNull { info ->
+                info.loadLabel(context.packageManager).toString().contains(requested, ignoreCase = true)
+            } ?: return null
+
+            val launchIntent = context.packageManager.getLaunchIntentForPackage(match.activityInfo.packageName)
+                ?: return null
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(launchIntent)
+            match.loadLabel(context.packageManager).toString()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun openSystemSettings(target: String): String? {
+        val key = target.trim().lowercase()
+        val selection = when (key) {
+            "wifi", "wi-fi", "wireless" -> Settings.ACTION_WIFI_SETTINGS to "Wi-Fi settings"
+            "bluetooth" -> Settings.ACTION_BLUETOOTH_SETTINGS to "Bluetooth settings"
+            "display", "screen" -> Settings.ACTION_DISPLAY_SETTINGS to "Display settings"
+            "sound", "audio", "volume" -> Settings.ACTION_SOUND_SETTINGS to "Sound settings"
+            "accessibility" -> Settings.ACTION_ACCESSIBILITY_SETTINGS to "Accessibility settings"
+            "notifications", "notification access" -> Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS to "Notification access settings"
+            "apps", "applications" -> Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS to "App settings"
+            "battery" -> Settings.ACTION_BATTERY_SAVER_SETTINGS to "Battery settings"
+            "location" -> Settings.ACTION_LOCATION_SOURCE_SETTINGS to "Location settings"
+            else -> Settings.ACTION_SETTINGS to "Android Settings"
+        }
+        return try {
+            context.startActivity(Intent(selection.first).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            selection.second
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun adjustMediaVolume(direction: String): Boolean {
+        val adjustment = when (direction.trim().lowercase()) {
+            "up", "raise", "increase" -> AudioManager.ADJUST_RAISE
+            "down", "lower", "decrease" -> AudioManager.ADJUST_LOWER
+            "mute" -> AudioManager.ADJUST_MUTE
+            else -> return false
+        }
+        return try {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return false
+            audioManager.adjustStreamVolume(
+                AudioManager.STREAM_MUSIC,
+                adjustment,
+                AudioManager.FLAG_SHOW_UI
+            )
+            true
+        } catch (_: Exception) {
+            false
         }
     }
 
