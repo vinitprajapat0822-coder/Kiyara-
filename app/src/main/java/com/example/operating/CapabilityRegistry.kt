@@ -378,13 +378,13 @@ class CapabilityRegistry(
 
     private fun triggerHaptic(): Boolean {
         return try {
-            val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibrator = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
                 manager?.defaultVibrator
             } else {
                 @Suppress("DEPRECATION")
                 context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-            } ?: return false
+            }) ?: return false
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 vibrator.vibrate(VibrationEffect.createOneShot(80, VibrationEffect.DEFAULT_AMPLITUDE))
