@@ -54,10 +54,10 @@ class KiaraaAccessibilityService : AccessibilityService() {
             if (!isEnabled(context)) return false
             val service = connectedService ?: return false
             val globalAction = when (action.trim().lowercase()) {
-                "back" -> GLOBAL_ACTION_BACK
-                "home" -> GLOBAL_ACTION_HOME
-                "recents" -> GLOBAL_ACTION_RECENTS
-                "notifications" -> GLOBAL_ACTION_NOTIFICATIONS
+                "back" -> AccessibilityService.GLOBAL_ACTION_BACK
+                "home" -> AccessibilityService.GLOBAL_ACTION_HOME
+                "recents" -> AccessibilityService.GLOBAL_ACTION_RECENTS
+                "notifications" -> AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS
                 else -> return false
             }
             return service.performGlobalAction(globalAction)
