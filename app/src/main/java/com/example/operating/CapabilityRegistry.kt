@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
 import android.provider.Settings
+import android.view.KeyEvent
 import com.example.operating.accessibility.KiaraaAccessibilityService
 import com.example.operating.accessibility.KiaraaNotificationListenerService
 import android.os.Build
@@ -133,6 +134,15 @@ class CapabilityRegistry(
             verificationStrategy = "Notification-listener connection and in-memory snapshot"
         ),
         CapabilityInfo(
+            id = "media_control",
+            name = "Media Play / Pause",
+            description = "Sends a play/pause key event to Android. The active media app determines whether playback actually changes.",
+            platform = "Android AudioManager",
+            riskLevel = RiskLevel.LOW,
+            status = CapabilityStatus.AVAILABLE,
+            verificationStrategy = "Media key event dispatch; playback state is not independently observable"
+        ),
+        CapabilityInfo(
             id = "volume_control",
             name = "Media Volume Control",
             description = "Raises, lowers, or mutes music-stream volume after explicit confirmation.",
@@ -240,6 +250,15 @@ class CapabilityRegistry(
                     }
                 }
             }
+            "media_control" -> {
+                val dispatched = dispatchMediaToggle()
+                logAudit(capability, if (dispatched) "DISPATCHED" else "FAILED", "Media play/pause key dispatch requested.")
+                if (dispatched) {
+                    ExecutionResult.Success("Sent a play/pause command to Android. Actual playback depends on the active media app.")
+                } else {
+                    ExecutionResult.Error("Could not send the media key command.")
+                }
+            }
             "volume_control" -> {
                 val changed = adjustMediaVolume(parameter)
                 logAudit(capability, if (changed) "SUCCESS" else "FAILED", "Media volume action requested: $parameter")
@@ -323,6 +342,17 @@ class CapabilityRegistry(
             selection.second
         } catch (_: Exception) {
             null
+        }
+    }
+
+    private fun dispatchMediaToggle(): Boolean {
+        return try {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return false
+            audioManager.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
+            audioManager.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
+            true
+        } catch (_: Exception) {
+            false
         }
     }
 
