@@ -119,7 +119,7 @@ class CapabilityRegistry(
             name = "User-Requested System Navigation",
             description = "Performs Back, Home, Recents, or notification-shade navigation only after explicit user input and manual OS permission enablement.",
             platform = "Android Accessibility Service",
-            riskLevel = RiskLevel.MEDIUM,
+            riskLevel = RiskLevel.LOW,
             status = CapabilityStatus.REQUIRES_PERMISSION,
             verificationStrategy = "Android global-action return value"
         ),
