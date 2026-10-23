@@ -54,7 +54,7 @@
 
         <service
             android:name=".operating.accessibility.KiaraaNotificationListenerService"
-            android:exported="true"
+            android:exported="false"
             android:label="KIARAA Notification Reader"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
