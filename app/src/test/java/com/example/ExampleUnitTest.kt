@@ -19,6 +19,7 @@ class ExampleUnitTest {
   @Test
   fun configuredModelUsesGemini35FlashLite() {
     assertEquals("gemini-3.5-flash-lite", GeminiApiClient.MODEL_FAST)
+    assertEquals("Gemini 3.5 Flash Lite", GeminiApiClient.MODEL_DISPLAY_NAME)
   }
 
   @Test
