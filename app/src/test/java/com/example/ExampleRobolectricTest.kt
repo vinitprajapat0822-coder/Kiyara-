@@ -44,6 +44,29 @@ class ExampleRobolectricTest {
   }
 
   @Test
+  fun phaseTwoDeviceActionsAreRegisteredWithoutFakeTimerOrSolverSuccess() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val database = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+
+    try {
+      val registry = CapabilityRegistry(context, database.auditDao())
+      val capabilities = registry.capabilities.associateBy { it.id }
+
+      assertTrue(capabilities.containsKey("open_app"))
+      assertTrue(capabilities.containsKey("open_system_settings"))
+      assertTrue(capabilities.containsKey("system_navigation"))
+      assertTrue(capabilities.containsKey("read_notifications"))
+      assertTrue(capabilities.containsKey("volume_control"))
+      assertEquals(com.example.operating.CapabilityStatus.PLANNED, capabilities["study_timer"]?.status)
+      assertEquals(com.example.operating.CapabilityStatus.PLANNED, capabilities["jee_solver"]?.status)
+    } finally {
+      database.close()
+    }
+  }
+
+  @Test
   fun defaultSeederIsIdempotent() = runBlocking {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val database = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
