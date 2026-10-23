@@ -20,4 +20,12 @@ class ExampleUnitTest {
   fun configuredModelUsesGemini35FlashLite() {
     assertEquals("gemini-3.5-flash-lite", GeminiApiClient.MODEL_FAST)
   }
+
+  @Test
+  fun systemPromptRetainsKiaraaSpecializationAndExplicitActionRules() {
+    val prompt = GeminiApiClient.KIARAA_SYSTEM_PROMPT
+    assertTrue(prompt.contains("Natural Hinglish"))
+    assertTrue(prompt.contains("JEE 2027"))
+    assertTrue(prompt.contains("Never claim a phone action succeeded"))
+  }
 }
