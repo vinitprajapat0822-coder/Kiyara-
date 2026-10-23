@@ -92,7 +92,6 @@ fun ChatScreen(viewModel: MainViewModel) {
     val messages by viewModel.messages.collectAsState()
     val inputText by viewModel.inputText.collectAsState()
     val isGenerating by viewModel.isGenerating.collectAsState()
-    val isHighThinking by viewModel.isHighThinking.collectAsState()
     val activeModelName by viewModel.activeModelName.collectAsState()
     val orbTheme by viewModel.orbTheme.collectAsState()
     val orbPulsation by viewModel.orbPulsationRate.collectAsState()
@@ -206,46 +205,7 @@ fun ChatScreen(viewModel: MainViewModel) {
                     }
                 }
 
-                // High Thinking Mode Toggle Chip
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(
-                            if (isHighThinking) Brush.horizontalGradient(
-                                listOf(ElectricViolet.copy(alpha = 0.35f), HighThinkingAccent.copy(alpha = 0.4f))
-                            ) else Brush.horizontalGradient(listOf(SurfaceDark, SurfaceDark))
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = if (isHighThinking) HighThinkingAccent else GlassBorderSubtle,
-                            shape = RoundedCornerShape(20.dp)
-                        )
-                        .clickable { viewModel.toggleHighThinking() }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                        .testTag("toggle_high_thinking"),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Psychology,
-                            contentDescription = "Thinking Mode",
-                            tint = if (isHighThinking) HighThinkingAccent else TextMuted,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (isHighThinking) "Thinking: HIGH" else "Fast Mode",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            fontFamily = FontFamily.Monospace,
-                            color = if (isHighThinking) CoolWhite else TextMuted
-                        )
-                    }
-                }
-            }
-        }
-
-        // Quick Suggestion Chips
+                // Quick Suggestion Chips        // Quick Suggestion Chips
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
@@ -294,7 +254,7 @@ fun ChatScreen(viewModel: MainViewModel) {
 
             if (isGenerating) {
                 item {
-                    GeneratingIndicator(isHighThinking = isHighThinking)
+                    GeneratingIndicator()
                 }
             }
         }
@@ -542,7 +502,7 @@ fun ChatMessageItem(
 }
 
 @Composable
-fun GeneratingIndicator(isHighThinking: Boolean) {
+fun GeneratingIndicator() {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
@@ -554,14 +514,14 @@ fun GeneratingIndicator(isHighThinking: Boolean) {
             CircularProgressIndicator(
                 modifier = Modifier.size(16.dp),
                 strokeWidth = 2.dp,
-                color = if (isHighThinking) HighThinkingAccent else NeonCyan
+                color = NeonCyan
             )
             Spacer(modifier = Modifier.width(10.dp))
             Text(
-                text = if (isHighThinking) "KIARAA deep thinking (gemini-4-argon)..." else "KIARAA is typing...",
+                text = "KIARAA is responding...",
                 fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace,
-                color = if (isHighThinking) HighThinkingAccent else NeonCyan
+                color = NeonCyan
             )
         }
     }
