@@ -30,6 +30,7 @@ class ExampleUnitTest {
     assertTrue(prompt.contains("JEE Mains / Advanced Practice Challenge"))
     assertFalse(prompt.contains("argon"))
     assertFalse(prompt.contains("gemini-3.8-flash"))
+    assertTrue(prompt.contains("Android development"))
     assertTrue(prompt.contains("Never claim a phone action succeeded"))
     assertTrue(prompt.contains("OS-granted permissions"))
   }
