@@ -143,6 +143,15 @@ class CapabilityRegistry(
             verificationStrategy = "Media key event dispatch; playback state is not independently observable"
         ),
         CapabilityInfo(
+            id = "brightness_control",
+            name = "Screen Brightness",
+            description = "Sets or adjusts screen brightness only after the user grants Android Modify system settings access; each change needs explicit confirmation.",
+            platform = "Android Settings.System",
+            riskLevel = RiskLevel.MEDIUM,
+            status = CapabilityStatus.REQUIRES_PERMISSION,
+            verificationStrategy = "Settings.System.canWrite and putInt return value"
+        ),
+        CapabilityInfo(
             id = "volume_control",
             name = "Media Volume Control",
             description = "Raises, lowers, or mutes music-stream volume after explicit confirmation.",
@@ -180,6 +189,10 @@ class CapabilityRegistry(
                 )
                 "read_notifications" -> capability.copy(
                     status = if (KiaraaNotificationListenerService.isAccessGranted(context)) CapabilityStatus.AVAILABLE
+                    else CapabilityStatus.REQUIRES_PERMISSION
+                )
+                "brightness_control" -> capability.copy(
+                    status = if (Settings.System.canWrite(context)) CapabilityStatus.AVAILABLE
                     else CapabilityStatus.REQUIRES_PERMISSION
                 )
                 else -> capability
@@ -257,6 +270,55 @@ class CapabilityRegistry(
                     ExecutionResult.Success("Sent a play/pause command to Android. Actual playback depends on the active media app.")
                 } else {
                     ExecutionResult.Error("Could not send the media key command.")
+                }
+            }
+            "brightness_control" -> {
+                if (!Settings.System.canWrite(context)) {
+                    logAudit(capability, "BLOCKED", "Brightness change requires manually granted Modify system settings access.")
+                    ExecutionResult.Blocked(
+                        "Brightness was not changed. Open More > Personalization & Privacy > Brightness Access, then enable Modify system settings for KIARAA."
+                    )
+                } else {
+                    try {
+                        val current = Settings.System.getInt(
+                            context.contentResolver,
+                            Settings.System.SCREEN_BRIGHTNESS,
+                            128
+                        ).coerceIn(0, 255)
+                        val currentPercent = ((current * 100) + 127) / 255
+                        val requestedPercent = when (parameter.trim().lowercase()) {
+                            "up", "increase", "raise" -> (currentPercent + 10).coerceAtMost(100)
+                            "down", "decrease", "lower" -> (currentPercent - 10).coerceAtLeast(5)
+                            "max", "maximum" -> 100
+                            "min", "minimum" -> 5
+                            else -> parameter.trim().toIntOrNull()
+                        }
+                        if (requestedPercent == null || requestedPercent !in 5..100) {
+                            ExecutionResult.Error("Use brightness up/down or a percentage from 5 to 100.")
+                        } else {
+                            val rawValue = ((requestedPercent * 255) + 50) / 100
+                            val saved = Settings.System.putInt(
+                                context.contentResolver,
+                                Settings.System.SCREEN_BRIGHTNESS,
+                                rawValue.coerceIn(13, 255)
+                            )
+                            logAudit(
+                                capability,
+                                if (saved) "SUCCESS" else "FAILED",
+                                "Requested screen brightness: $requestedPercent percent."
+                            )
+                            if (saved) {
+                                ExecutionResult.Success(
+                                    "Saved screen brightness setting to $requestedPercent%. If Auto-brightness is on, Android may still adjust the visible level."
+                                )
+                            } else {
+                                ExecutionResult.Error("Android did not save the brightness setting.")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        logAudit(capability, "FAILED", "Brightness update failed: ${e.javaClass.simpleName}")
+                        ExecutionResult.Error("Could not update screen brightness: ${e.localizedMessage ?: "system settings error"}")
+                    }
                 }
             }
             "volume_control" -> {
