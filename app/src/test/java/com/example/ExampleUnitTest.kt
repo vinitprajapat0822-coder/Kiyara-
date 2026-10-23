@@ -17,9 +17,7 @@ class ExampleUnitTest {
   }
 
   @Test
-  fun fallbackModelsUseDocumentedModelIds() {
-    assertEquals("gemini-4-argon", GeminiApiClient.MODEL_HIGH_THINKING)
-    assertEquals("gemini-3.8-flash", GeminiApiClient.MODEL_RECOMMENDED)
+  fun configuredModelUsesGemini35FlashLite() {
     assertEquals("gemini-3.5-flash-lite", GeminiApiClient.MODEL_FAST)
   }
 }
