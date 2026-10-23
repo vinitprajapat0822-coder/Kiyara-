@@ -91,11 +91,11 @@ class CapabilityRegistry(
         CapabilityInfo(
             id = "termux_builder",
             name = "Termux / Linux Command Assistant",
-            description = "Synthesizes verified CLI pipelines for Termux, Python, Git, and Android build tools.",
+            description = "Selects from predefined Termux command templates and copies them to clipboard; it does not execute commands or sandbox-scan them.",
             platform = "Terminal Environment",
             riskLevel = RiskLevel.LOW,
             status = CapabilityStatus.AVAILABLE,
-            verificationStrategy = "Syntax & safety sandbox scan"
+            verificationStrategy = "Clipboard copy result; command execution is not attempted"
         ),
         CapabilityInfo(
             id = "open_app",
