@@ -27,6 +27,8 @@ class ExampleUnitTest {
     val prompt = GeminiApiClient.KIARAA_SYSTEM_PROMPT
     assertTrue(prompt.contains("Natural Hinglish"))
     assertTrue(prompt.contains("JEE 2027"))
+    assertTrue(prompt.contains("JEE Mains / Advanced Practice Challenge"))
+    assertFalse(prompt.contains("argon"))
     assertTrue(prompt.contains("Never claim a phone action succeeded"))
     assertTrue(prompt.contains("OS-granted permissions"))
   }
