@@ -33,5 +33,7 @@ class ExampleUnitTest {
     assertTrue(prompt.contains("Android development"))
     assertTrue(prompt.contains("Never claim a phone action succeeded"))
     assertTrue(prompt.contains("OS-granted permissions"))
+    assertTrue(prompt.contains("5–100%"))
+    assertTrue(prompt.contains("arbitrary screen taps/typing"))
   }
 }
