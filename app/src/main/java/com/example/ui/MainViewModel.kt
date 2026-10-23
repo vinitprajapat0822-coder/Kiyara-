@@ -350,6 +350,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 "volume_control" to "down"
             command in setOf("mute", "mute volume", "media mute") ->
                 "volume_control" to "mute"
+            command in setOf("play pause", "play/pause", "toggle media", "toggle music", "pause music", "play media", "pause media", "resume music") ->
+                "media_control" to "toggle"
             command.startsWith("open wifi settings") || command.startsWith("open wi-fi settings") ||
                 command == "wifi settings" || command == "wi-fi settings" ->
                 "open_system_settings" to "wifi"
