@@ -205,7 +205,11 @@ fun ChatScreen(viewModel: MainViewModel) {
                     }
                 }
 
-                // Quick Suggestion Chips        // Quick Suggestion Chips
+                }
+            }
+        }
+
+        // Quick Suggestion Chips
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
@@ -462,7 +466,7 @@ fun ChatMessageItem(
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = if (showThoughts) "Hide Reasoning Chain ▲" else "Show Reasoning Chain (gemini-4-argon) ▼",
+                                text = if (showThoughts) "Hide Model Details ▲" else "Show Model Details ▼",
                                 fontSize = 10.sp,
                                 fontFamily = FontFamily.Monospace,
                                 color = HighThinkingAccent
