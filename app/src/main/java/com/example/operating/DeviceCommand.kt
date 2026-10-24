@@ -27,7 +27,7 @@ sealed class DeviceCommand {
     data object ReadScreen : DeviceCommand()
     data object OpenNotificationShade : DeviceCommand()
     data object ReadNotifications : DeviceCommand()
-    data class OpenNotification(val index: Int) : DeviceCommand()
+    data class OpenNotification(val index: Int, val expectedKey: String? = null) : DeviceCommand()
     data class Clarify(val prompt: String) : DeviceCommand()
 }
 
