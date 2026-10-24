@@ -12,5 +12,5 @@ data class ChatMessage(
     val timestamp: Long = System.currentTimeMillis(),
     val isThinking: Boolean = false,
     val thoughts: String = "",
-    val mode: String = "general" // "general", "high_thinking", "jee", "saathi", "live_baat"
+    val mode: String = "general" // "general", "device_control", "saathi", "live_baat"
 )
