@@ -191,6 +191,9 @@ class VoiceManager(
     }
 
     fun speak(text: String, utteranceId: String = "kiaraa_speech") {
+        speechRequestId++
+        stopElevenLabsPlayback()
+        textToSpeech?.stop()
         cancelListening()
         // Strip markdown formatting before vocalizing and cap request cost/latency.
         val cleanSpeech = text
@@ -204,7 +207,6 @@ class VoiceManager(
         if (apiKey.isNotEmpty() && apiKey != "MY_ELEVENLABS_API_KEY" &&
             voiceId.isNotEmpty() && voiceId != "MY_ELEVENLABS_VOICE_ID") {
             val requestId = ++speechRequestId
-            stopElevenLabsPlayback()
             _voiceState.value = VoiceState.PROCESSING
             coroutineScope.launch(Dispatchers.IO) {
                 try {
@@ -311,6 +313,8 @@ class VoiceManager(
     }
 
     fun stopSpeaking() {
+        speechRequestId++
+        stopElevenLabsPlayback()
         if (textToSpeech?.isSpeaking == true) {
             textToSpeech?.stop()
         }
