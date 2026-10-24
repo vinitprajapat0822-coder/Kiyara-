@@ -18,6 +18,9 @@ interface ChatDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: ChatMessage): Long
 
+    @Query("UPDATE chat_messages SET content = :replacement, mode = 'general' WHERE role = 'assistant' AND content LIKE '%JEE 2027 prep%' AND content LIKE '%Codename: MR.V%'")
+    suspend fun replaceLegacyWelcomeMessage(replacement: String)
+
     @Query("DELETE FROM chat_messages")
     suspend fun clearHistory()
 }
