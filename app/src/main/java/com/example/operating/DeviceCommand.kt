@@ -2,7 +2,8 @@ package com.example.operating
 
 sealed class DeviceCommand {
     // Screen taps can activate submit/send/delete controls; text entry can affect the wrong field.
-    // These commands must be confirmed in the UI before execution.
+    // This marks sensitivity only. DeviceCommandExecutor currently blocks these until target-app
+    // focus can be guaranteed; a dialog alone is not sufficient authorization.
     fun requiresExplicitConfirmation(): Boolean = this is Tap || this is TypeText
 
     data class Brightness(val operation: BrightnessOperation, val percent: Int? = null) : DeviceCommand()
