@@ -16,6 +16,7 @@ import com.example.operating.ExecutionResult
 import com.example.operating.DeviceCommand
 import com.example.operating.DeviceCommandParser
 import com.example.operating.DeviceCommandExecutor
+import com.example.operating.KiaraaNotificationListenerService
 import com.example.operating.DeviceActionStatus
 import com.example.ui.components.OrbVisualTheme
 import com.example.voice.VoiceManager
@@ -140,7 +141,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val trimmed = userText.trim()
         if (trimmed.isEmpty() || _isGenerating.value || _pendingDeviceConfirmation.value != null) return
 
-        val deviceCommand = DeviceCommandParser.parse(trimmed)
+        val parsedCommand = DeviceCommandParser.parse(trimmed)
+        val deviceCommand = if (parsedCommand is DeviceCommand.OpenNotification) {
+            parsedCommand.copy(expectedKey = KiaraaNotificationListenerService.captureNotificationKey(parsedCommand.index))
+        } else {
+            parsedCommand
+        }
         if (deviceCommand != null) {
             // These screen actions are blocked in DeviceCommandExecutor until target-app
             // focus can be guaranteed; do not show a misleading "Confirm action" dialog.
@@ -155,7 +161,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     is DeviceCommand.TypeText -> "Confirm text entry" to
                         "KIARAA will enter this text into the currently focused field:\n“${deviceCommand.text.take(240)}${if (deviceCommand.text.length > 240) "…" else ""}”\n\nKIARAA will not tap Send or Submit. Verify the destination field before continuing."
                     is DeviceCommand.OpenNotification -> "Open notification ${deviceCommand.index}?" to
-                        "KIARAA will ask Android to open notification ${deviceCommand.index} in its originating app. This may switch apps or reveal private content. No notification preview is shown here. Continue only if you intended to open it."
+                        "KIARAA will open only the notification identified when this confirmation was prepared. The list is rechecked before opening; if it changed or the target cannot be verified, nothing will open. This may switch apps or reveal private content. No preview is shown here."
                     else -> error("Confirmation requested for an unsupported command type.")
                 }
                 _inputText.value = ""
