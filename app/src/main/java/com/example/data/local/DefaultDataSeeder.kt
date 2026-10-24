@@ -14,8 +14,10 @@ class DefaultDataSeeder(
         database.withTransaction {
             val chatDao = database.chatDao()
             database.memoryDao().deleteSystemSeededMemories()
+            val welcome = createWelcomeMessage()
+            chatDao.replaceLegacyWelcomeMessage(welcome.content)
             if (chatDao.getMessageCount() == 0) {
-                chatDao.insertMessage(createWelcomeMessage())
+                chatDao.insertMessage(welcome)
             }
         }
     }
