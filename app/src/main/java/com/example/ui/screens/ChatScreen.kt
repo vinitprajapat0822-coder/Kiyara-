@@ -440,6 +440,7 @@ fun ChatMessageItem(
                             }
                         }
                     }
+                }
 
                 Text(
                     text = message.content,
