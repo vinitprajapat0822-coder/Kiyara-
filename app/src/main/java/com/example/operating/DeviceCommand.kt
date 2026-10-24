@@ -4,7 +4,7 @@ sealed class DeviceCommand {
     // Screen taps can activate submit/send/delete controls; text entry can affect the wrong field.
     // This marks sensitivity only. DeviceCommandExecutor currently blocks these until target-app
     // focus can be guaranteed; a dialog alone is not sufficient authorization.
-    fun requiresExplicitConfirmation(): Boolean = this is Tap || this is TypeText
+    fun requiresExplicitConfirmation(): Boolean = this is Tap || this is TypeText || this is OpenNotification
 
     data class Brightness(val operation: BrightnessOperation, val percent: Int? = null) : DeviceCommand()
     data class Volume(val operation: VolumeOperation, val stream: VolumeStream = VolumeStream.MEDIA, val percent: Int? = null) : DeviceCommand()
