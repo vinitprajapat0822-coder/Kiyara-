@@ -1,10 +1,10 @@
 name: KIARAA Android CI
 
 on:
+  # Main pushes and pull requests run CI. PR branches are not built twice on each push.
   push:
     branches:
       - main
-      - 'fix/**'
   pull_request:
     branches:
       - main
