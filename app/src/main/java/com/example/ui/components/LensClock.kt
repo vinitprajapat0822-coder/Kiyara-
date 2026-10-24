@@ -19,9 +19,6 @@ import com.example.ui.theme.ElectricViolet
 import com.example.ui.theme.GlassBorderSubtle
 import com.example.ui.theme.NeonCyan
 import kotlinx.coroutines.delay
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.sin
 
