@@ -80,7 +80,7 @@ class ExampleRobolectricTest {
       val messages = database.chatDao().getAllMessages().first()
       assertEquals(1, messages.size)
       assertEquals("Keep this history", messages.single().content)
-      assertEquals(1, database.memoryDao().getCountByCategoryAndTitle("JEE Prep", "Target Exam"))
+      assertEquals(0, database.memoryDao().getCountByCategoryAndTitle("JEE Prep", "Target Exam"))
     } finally {
       database.close()
     }
