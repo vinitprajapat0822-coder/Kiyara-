@@ -54,7 +54,7 @@ class DeviceCommandExecutor(context: Context) {
                 openIntent(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 DeviceActionResult.needsPermission("Notification Access settings kholi hain. KIARAA ko manually enable karo, phir command repeat karo.")
             } else {
-                KiaraaNotificationListenerService.openRecent(command.index)
+                KiaraaNotificationListenerService.openRecent(command.index, command.expectedKey)
             }
         }
     }
