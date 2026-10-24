@@ -13,6 +13,10 @@ import com.example.data.model.MemoryItem
 import com.example.operating.CapabilityInfo
 import com.example.operating.CapabilityRegistry
 import com.example.operating.ExecutionResult
+import com.example.operating.DeviceCommand
+import com.example.operating.DeviceCommandParser
+import com.example.operating.DeviceCommandExecutor
+import com.example.operating.DeviceActionStatus
 import com.example.ui.components.OrbVisualTheme
 import com.example.voice.VoiceManager
 import com.example.voice.VoiceState
@@ -27,9 +31,7 @@ import kotlinx.coroutines.launch
 enum class AppScreen {
     TERMINAL,
     LIVE_BAAT,
-    JEE_HUB,
     MEMORY,
-    CAPABILITIES,
     SETTINGS
 }
 
@@ -41,6 +43,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val auditDao = database.auditDao()
 
     private val geminiClient = GeminiApiClient()
+    private val deviceCommandExecutor = DeviceCommandExecutor(application)
     val capabilityRegistry = CapabilityRegistry(application, auditDao)
     val voiceManager = VoiceManager(application, viewModelScope)
 
@@ -61,16 +64,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // UI & Thinking State
-    private val _isHighThinking = MutableStateFlow(true) // Default to High Thinking for deep JEE & reasoning
-    val isHighThinking: StateFlow<Boolean> = _isHighThinking.asStateFlow()
-
     private val _inputText = MutableStateFlow("")
     val inputText: StateFlow<String> = _inputText.asStateFlow()
 
     private val _isGenerating = MutableStateFlow(false)
     val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
 
-    private val _activeModelName = MutableStateFlow(GeminiApiClient.MODEL_HIGH_THINKING)
+    private val _activeModelName = MutableStateFlow(GeminiApiClient.MODEL_FAST)
     val activeModelName: StateFlow<String> = _activeModelName.asStateFlow()
 
     private val _isKeyMissing = MutableStateFlow(false)
@@ -112,12 +112,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _inputText.value = text
     }
 
-    fun toggleHighThinking() {
-        val next = !_isHighThinking.value
-        _isHighThinking.value = next
-        _activeModelName.value = if (next) GeminiApiClient.MODEL_HIGH_THINKING else GeminiApiClient.MODEL_FAST
-    }
-
     fun setOrbTheme(theme: OrbVisualTheme) {
         _orbTheme.value = theme
     }
@@ -134,6 +128,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val trimmed = userText.trim()
         if (trimmed.isEmpty() || _isGenerating.value) return
 
+        val deviceCommand = DeviceCommandParser.parse(trimmed)
+        if (deviceCommand != null) {
+            executeDeviceCommand(trimmed, deviceCommand, fromVoice)
+            return
+        }
+
         _inputText.value = ""
         _isGenerating.value = true
 
@@ -142,7 +142,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val userMsg = ChatMessage(
                 role = "user",
                 content = trimmed,
-                mode = if (_isHighThinking.value) "high_thinking" else "general"
+                mode = "general"
             )
             chatDao.insertMessage(userMsg)
 
@@ -152,7 +152,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // 3. Request Gemini API (or local companion fallback if key missing)
             val result = geminiClient.generateResponse(
                 prompt = trimmed,
-                enableHighThinking = _isHighThinking.value,
+                enableHighThinking = false,
                 conversationHistory = historyList
             )
 
@@ -168,7 +168,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         content = result.text,
                         isThinking = result.thoughts.isNotEmpty(),
                         thoughts = result.thoughts,
-                        mode = if (_isHighThinking.value) "high_thinking" else "general"
+                        mode = "general"
                     )
                     chatDao.insertMessage(assistantMsg)
 
@@ -227,59 +227,52 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun generateLocalCompanionResponse(query: String): String {
         val q = query.lowercase()
         return when {
-            q.contains("physics") || q.contains("newton") || q.contains("mechanics") -> """
-                **[KIARAA Local Engine — Physics]**
-                
-                Haanji, Physics ke fundamentals clear karte hain!
-                
-                1. **Concept Clarity:** Newton's Second Law: F = dp/dt. When mass m is constant, F = m * a.
-                2. **Application:** Always isolate the body and draw a clean Free Body Diagram (FBD).
-                3. **Common Trap:** Normal reaction N is NOT always mg (e.g., in accelerated elevators or inclined planes where N = mg * cos(theta)).
-                4. **Practice Check:** A 2 kg block rests on a 30° incline (mu = 0.6). Calculate friction force. (Check if mg * sin(theta) <= mu * N).
-            """.trimIndent()
+            q.contains("termux") || q.contains("bash") || q.contains("android") || q.contains("kotlin") || q.contains("code") ->
+                "Haanji, main abhi offline/local mode mein hoon. Main safe command steps aur debugging guidance de sakti hoon, lekin phone par koi command chalane ka claim tabhi karungi jab execution verify ho."
+            listOf("mood kharab", "sad hoon", "tired hoon", "stress", "pareshan").any(q::contains) ->
+                "Kya haal hai? Main sun rahi hoon. Baat karni hai, thoda break plan karna hai, ya calming music ke options dekhne hain?"
+            else ->
+                "Haanji, main KIARAA hoon — Hinglish personal assistant. Gemini API abhi unavailable hai, isliye main sirf basic local help de sakti hoon. Network/API restore hone par detailed response milega; maine koi external action execute nahi kiya."
+        }
+    }
 
-            q.contains("chemistry") || q.contains("organic") || q.contains("sn1") || q.contains("sn2") -> """
-                **[KIARAA Local Engine — Chemistry]**
-                
-                Bilkul, SN1 vs SN2 mechanism comparison:
-                
-                1. **SN1:** Two-step, carbocation intermediate, polar protic solvent favors, tertiary > secondary > primary. Racemization occurs.
-                2. **SN2:** Concerted single-step, backside attack, polar aprotic solvent (e.g. Acetone, DMSO), primary > secondary. Walden Inversion occurs!
-                3. **JEE Tip:** Steric hindrance is the dominating factor for SN2, while carbocation stability governs SN1.
-            """.trimIndent()
-
-            q.contains("math") || q.contains("calculus") || q.contains("integration") -> """
-                **[KIARAA Local Engine — Mathematics]**
-                
-                Chaliye Calculus ka standard rule recall karein:
-                
-                1. **Integration by Parts:** Integral u*v dx = u * Integral(v dx) - Integral [ u' * Integral(v dx) ] dx
-                2. **ILATE Rule:** Inverse, Logarithmic, Algebraic, Trigonometric, Exponential.
-                3. **JEE Mains Trap:** Don't forget the constant + C in indefinite integrals, and watch for symmetry in definite integrals: Integral from -a to a of f(x)dx = 0 if f(x) is odd!
-            """.trimIndent()
-
-            q.contains("termux") || q.contains("bash") || q.contains("android") -> """
-                **[KIARAA Local Engine — Tech & Termux]**
-                
-                Termux setup aur command guidance:
-                - Fresh environment update: `pkg update && pkg upgrade -y`
-                - Essential tools: `pkg install git python clang nodejs -y`
-                - Storage access: `termux-setup-storage`
-                
-                Aap kis package ya script par kaam kar rahe hain?
-            """.trimIndent()
-
-            else -> """
-                **[KIARAA AI — Midnight Terminal]**
-                
-                Haanji, aapka sandesh mila!
-                
-                > "$query"
-                
-                Main aapke JEE preparation (Physics, Chemistry, Math), coding, Android development, aur schedule management ke liye fully ready hoon.
-                
-                *(Note: Real-time Gemini 4-Argon reasoning requires configuring GEMINI_API_KEY in the AI Studio Secrets panel).*
-            """.trimIndent()
+    private fun executeDeviceCommand(input: String, command: DeviceCommand, fromVoice: Boolean) {
+        _inputText.value = ""
+        _isGenerating.value = true
+        _statusBanner.value = "PROCESSING • Checking requested device action…"
+        viewModelScope.launch {
+            var spokenResult = "Device action failed."
+            try {
+                val safeUserText = if (command is DeviceCommand.TypeText) {
+                    "Type-text request received (text payload not saved)."
+                } else input
+                chatDao.insertMessage(ChatMessage(role = "user", content = safeUserText, mode = "device_control"))
+                _statusBanner.value = "EXECUTING • Running the local Android action…"
+                val result = deviceCommandExecutor.execute(command)
+                spokenResult = result.message
+                if (result.status == DeviceActionStatus.NEEDS_ACCESSIBILITY) {
+                    _currentScreen.value = AppScreen.SETTINGS
+                }
+                chatDao.insertMessage(ChatMessage(role = "assistant", content = result.message.take(1600), mode = "device_control"))
+                if (fromVoice || _currentScreen.value == AppScreen.LIVE_BAAT) voiceManager.speak(spokenResult)
+                val label = when (result.status) {
+                    DeviceActionStatus.SUCCESS -> "DONE"
+                    DeviceActionStatus.PARTIAL -> "PARTIAL"
+                    DeviceActionStatus.CLARIFICATION -> "NEEDS CLARIFICATION"
+                    DeviceActionStatus.NEEDS_ACCESSIBILITY, DeviceActionStatus.NEEDS_PERMISSION -> "PERMISSION NEEDED"
+                    DeviceActionStatus.FAILED -> "FAILED"
+                }
+                _statusBanner.value = "${label} • ${result.message.take(180)}"
+            } catch (error: Exception) {
+                spokenResult = "Device action failed: ${error.localizedMessage ?: "unknown Android error"}"
+                _statusBanner.value = "FAILED • $spokenResult"
+                runCatching {
+                    chatDao.insertMessage(ChatMessage(role = "assistant", content = spokenResult, mode = "device_control"))
+                }
+                if (fromVoice || _currentScreen.value == AppScreen.LIVE_BAAT) voiceManager.speak(spokenResult)
+            } finally {
+                _isGenerating.value = false
+            }
         }
     }
 
