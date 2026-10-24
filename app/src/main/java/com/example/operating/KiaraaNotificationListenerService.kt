@@ -97,7 +97,7 @@ class KiaraaNotificationListenerService : NotificationListenerService() {
             val sensitive = listOf("password", "passcode", "one-time password", "verification code", "security code", "otp", "pin code")
                 .any { text.contains(it, ignoreCase = true) }
             if (sensitive) return "[sensitive code or credential hidden]"
-            return text.replace(Regex("""\b\d{4,8}\b"""), "••••")
+            return text.replace(Regex("""\b\d{4,}\b"""), "••••")
         }
     }
 }
