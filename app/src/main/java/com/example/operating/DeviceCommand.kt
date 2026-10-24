@@ -1,6 +1,10 @@
 package com.example.operating
 
 sealed class DeviceCommand {
+    // Screen taps can activate submit/send/delete controls; text entry can affect the wrong field.
+    // These commands must be confirmed in the UI before execution.
+    fun requiresExplicitConfirmation(): Boolean = this is Tap || this is TypeText
+
     data class Brightness(val operation: BrightnessOperation, val percent: Int? = null) : DeviceCommand()
     data class Volume(val operation: VolumeOperation, val stream: VolumeStream = VolumeStream.MEDIA, val percent: Int? = null) : DeviceCommand()
     data class ScreenTimeout(val seconds: Int) : DeviceCommand()
