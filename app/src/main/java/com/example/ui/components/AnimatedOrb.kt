@@ -67,28 +67,26 @@ fun AnimatedOrb(
     val rotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = if (reduceMotion) 0f else 360f,
-        animationSpec = if (reduceMotion) {
-            tween(durationMillis = 1)
-        } else {
-            infiniteRepeatable(
-                animation = tween(durationMillis = (10000 / pulsationRate).toInt(), easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
-            )
-        },
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = if (reduceMotion) 1 else (10000 / pulsationRate).toInt(),
+                easing = LinearEasing
+            ),
+            repeatMode = RepeatMode.Restart
+        ),
         label = "orb_rotation"
     )
 
     val breathing by infiniteTransition.animateFloat(
         initialValue = if (reduceMotion) 1f else 0.92f,
         targetValue = if (reduceMotion) 1f else 1.08f,
-        animationSpec = if (reduceMotion) {
-            tween(durationMillis = 1)
-        } else {
-            infiniteRepeatable(
-                animation = tween(durationMillis = (2400 / pulsationRate).toInt(), easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            )
-        },
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = if (reduceMotion) 1 else (2400 / pulsationRate).toInt(),
+                easing = FastOutSlowInEasing
+            ),
+            repeatMode = RepeatMode.Reverse
+        ),
         label = "orb_breathing"
     )
 
