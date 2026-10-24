@@ -93,7 +93,9 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: kiaraa-unit-test-reports
-          path: app/build/reports/tests/testDebugUnitTest/
+          path: |
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/test-results/testDebugUnitTest/
           if-no-files-found: warn
           retention-days: 14
 
