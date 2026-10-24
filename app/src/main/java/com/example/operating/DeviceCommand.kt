@@ -43,8 +43,17 @@ object DeviceCommandParser {
     private val multiStepMedia = Regex("""^(youtube|spotify)\s+(?:kholo|open)\s+(?:aur|and)\s+(.+?)\s+(?:play|chalao|chala\s+do)(?:\s+karo)?$""")
 
     fun parse(input: String): DeviceCommand? {
-        val q = input.trim().lowercase().replace(Regex("""\s+"""), " ")
+        val q = input.trim().lowercase().removeSuffix("?").replace(Regex("""\s+"""), " ")
         if (q.isBlank()) return null
+
+        // Only treat imperative-style requests as actions; keep educational questions in chat.
+        val informationalPrefixes = listOf(
+            "how do i ", "how to ", "how can i ", "what is ", "what are ",
+            "why is ", "why does ", "explain ", "tell me about ", "meaning of ",
+            "kaise kaam karta hai", "kaise kaam karti hai", "kya hota hai", "kyu hota hai",
+            "mujhe samjhao", "samjha do ki "
+        )
+        if (informationalPrefixes.any(q::startsWith)) return null
 
         multiStepMedia.matchEntire(q)?.let {
             return DeviceCommand.PlaySearch(if (it.groupValues[1] == "spotify") MediaPlatform.SPOTIFY else MediaPlatform.YOUTUBE, it.groupValues[2].trim())
