@@ -1,5 +1,8 @@
 package com.example.ui.components
 
+import android.animation.ValueAnimator
+import android.os.Build
+import android.provider.Settings
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -23,6 +26,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -45,34 +49,53 @@ fun AnimatedOrb(
     pulsationRate: Float = 1.0f,
     onClick: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val reduceMotion = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            !ValueAnimator.areAnimatorsEnabled()
+        } else {
+            Settings.Global.getFloat(
+                context.contentResolver,
+                Settings.Global.ANIMATOR_DURATION_SCALE,
+                1f
+            ) == 0f
+        }
+    }
     val infiniteTransition = rememberInfiniteTransition(label = "orb_infinite")
 
-    // Rotation angle
+    // Respect Android's system animation scale / "Remove animations" preference.
     val rotation by infiniteTransition.animateFloat(
         initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = (10000 / pulsationRate).toInt(), easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
+        targetValue = if (reduceMotion) 0f else 360f,
+        animationSpec = if (reduceMotion) {
+            tween(durationMillis = 1)
+        } else {
+            infiniteRepeatable(
+                animation = tween(durationMillis = (10000 / pulsationRate).toInt(), easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            )
+        },
         label = "orb_rotation"
     )
 
-    // Breathing pulse
     val breathing by infiniteTransition.animateFloat(
-        initialValue = 0.92f,
-        targetValue = 1.08f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = (2400 / pulsationRate).toInt(), easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
+        initialValue = if (reduceMotion) 1f else 0.92f,
+        targetValue = if (reduceMotion) 1f else 1.08f,
+        animationSpec = if (reduceMotion) {
+            tween(durationMillis = 1)
+        } else {
+            infiniteRepeatable(
+                animation = tween(durationMillis = (2400 / pulsationRate).toInt(), easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            )
+        },
         label = "orb_breathing"
     )
 
     // Dynamic scale driven by audio RMS when speaking or listening
     val dynamicAudioScale = remember { Animatable(1f) }
     LaunchedEffect(audioRms, voiceState) {
-        val target = when (voiceState) {
+        val target = if (reduceMotion) 1f else when (voiceState) {
             VoiceState.LISTENING -> 1f + (audioRms * 0.45f)
             VoiceState.SPEAKING -> 1f + (audioRms * 0.6f).coerceAtLeast(0.15f)
             VoiceState.PROCESSING -> 1.05f
@@ -107,7 +130,7 @@ fun AnimatedOrb(
         Canvas(modifier = Modifier.size(size)) {
             val center = Offset(this.size.width / 2, this.size.height / 2)
             val baseRadius = (this.size.minDimension / 2) * 0.65f
-            val currentScale = breathing * dynamicAudioScale.value
+            val currentScale = (if (reduceMotion) 1f else breathing) * dynamicAudioScale.value
             val effectiveRadius = baseRadius * currentScale
 
             // Layer 1: Ambient Outer Glow
