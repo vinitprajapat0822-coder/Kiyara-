@@ -53,7 +53,7 @@
             android:exported="true"
             android:label="@string/app_name"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.MyApplication">
+            android:theme="@style/Theme.Kiaraa">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
