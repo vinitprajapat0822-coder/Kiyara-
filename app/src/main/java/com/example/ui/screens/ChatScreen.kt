@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -176,17 +177,27 @@ fun ChatScreen(viewModel: MainViewModel) {
                                 color = NeonCyan
                             )
                         }
-                        Text(
-                            text = when (voiceState) {
-                                VoiceState.LISTENING -> "Listening to audio..."
-                                VoiceState.SPEAKING -> "Speaking aloud..."
-                                VoiceState.PROCESSING -> "Processing input..."
-                                VoiceState.ERROR -> "Voice error (Tap to retry)"
-                                VoiceState.IDLE -> "Model: $activeModelName"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (voiceState == VoiceState.LISTENING) NeonCyan else TextDim
-                        )
+                        AnimatedContent(
+                            targetState = voiceState,
+                            label = "kiaraa-assistant-status"
+                        ) { state ->
+                            Text(
+                                text = when (state) {
+                                    VoiceState.LISTENING -> "Listening..."
+                                    VoiceState.SPEAKING -> "Speaking..."
+                                    VoiceState.PROCESSING -> "Thinking..."
+                                    VoiceState.ERROR -> "Voice error · Tap to retry"
+                                    VoiceState.IDLE -> "Ready · $activeModelName"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = when (state) {
+                                    VoiceState.LISTENING, VoiceState.SPEAKING -> NeonCyan
+                                    VoiceState.PROCESSING -> ElectricViolet
+                                    VoiceState.ERROR -> RubyError
+                                    VoiceState.IDLE -> TextDim
+                                }
+                            )
+                        }
                     }
                 }
 
