@@ -16,6 +16,7 @@ import com.example.operating.ExecutionResult
 import com.example.operating.DeviceCommand
 import com.example.operating.DeviceCommandParser
 import com.example.operating.DeviceCommandExecutor
+import com.example.operating.requiresExplicitConfirmation
 import com.example.operating.DeviceActionStatus
 import com.example.ui.components.OrbVisualTheme
 import com.example.voice.VoiceManager
@@ -27,6 +28,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+data class PendingDeviceConfirmation(
+    val command: DeviceCommand,
+    val originalInput: String,
+    val fromVoice: Boolean,
+    val title: String,
+    val details: String
+)
 
 enum class AppScreen {
     TERMINAL,
@@ -83,6 +92,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _pendingConfirmation = MutableStateFlow<Pair<CapabilityInfo, String>?>(null)
     val pendingConfirmation: StateFlow<Pair<CapabilityInfo, String>?> = _pendingConfirmation.asStateFlow()
 
+    // Potentially consequential screen interactions require an explicit UI confirmation.
+    private val _pendingDeviceConfirmation = MutableStateFlow<PendingDeviceConfirmation?>(null)
+    val pendingDeviceConfirmation: StateFlow<PendingDeviceConfirmation?> = _pendingDeviceConfirmation.asStateFlow()
+
     // Orb customization
     private val _orbTheme = MutableStateFlow(OrbVisualTheme.MIDNIGHT_TERMINAL)
     val orbTheme: StateFlow<OrbVisualTheme> = _orbTheme.asStateFlow()
@@ -130,7 +143,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         val deviceCommand = DeviceCommandParser.parse(trimmed)
         if (deviceCommand != null) {
-            executeDeviceCommand(trimmed, deviceCommand, fromVoice)
+            if (deviceCommand.requiresExplicitConfirmation()) {
+                val (title, details) = when (deviceCommand) {
+                    is DeviceCommand.Tap -> "Confirm screen tap" to
+                        "KIARAA will tap at (${deviceCommand.x.toInt()}, ${deviceCommand.y.toInt()}) on the current screen. This may activate a button, send content, or submit a form. Verify the intended target before continuing."
+                    is DeviceCommand.TypeText -> "Confirm text entry" to
+                        "KIARAA will enter this text into the currently focused field:\n“${deviceCommand.text.take(240)}${if (deviceCommand.text.length > 240) "…" else ""}”\n\nKIARAA will not tap Send or Submit. Verify the destination field before continuing."
+                    else -> error("Confirmation requested for an unsupported command type.")
+                }
+                _inputText.value = ""
+                _pendingDeviceConfirmation.value = PendingDeviceConfirmation(
+                    command = deviceCommand,
+                    originalInput = trimmed,
+                    fromVoice = fromVoice,
+                    title = title,
+                    details = details
+                )
+                _statusBanner.value = "WAITING FOR CONFIRMATION • No screen action has been executed yet."
+            } else {
+                executeDeviceCommand(trimmed, deviceCommand, fromVoice)
+            }
             return
         }
 
@@ -234,6 +266,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             else ->
                 "Haanji, main KIARAA hoon — Hinglish personal assistant. Gemini API abhi unavailable hai, isliye main sirf basic local help de sakti hoon. Network/API restore hone par detailed response milega; maine koi external action execute nahi kiya."
         }
+    }
+
+    fun confirmPendingDeviceAction() {
+        val pending = _pendingDeviceConfirmation.value ?: return
+        _pendingDeviceConfirmation.value = null
+        executeDeviceCommand(pending.originalInput, pending.command, pending.fromVoice)
+    }
+
+    fun cancelPendingDeviceAction() {
+        _pendingDeviceConfirmation.value = null
+        _statusBanner.value = "CANCELLED • No screen action was executed."
     }
 
     private fun executeDeviceCommand(input: String, command: DeviceCommand, fromVoice: Boolean) {
