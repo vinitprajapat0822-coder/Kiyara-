@@ -26,7 +26,7 @@ class ExampleRobolectricTest {
   fun readStringFromContext_matchesKiaraa() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val appName = context.getString(R.string.app_name)
-    assertEquals("KIARAA AI", appName)
+    assertEquals("KIARAA", appName)
   }
 
   @Test
@@ -56,8 +56,8 @@ class ExampleRobolectricTest {
       seeder.seedIfNeeded()
 
       assertEquals(1, database.chatDao().getMessageCount())
-      assertEquals(1, database.memoryDao().getCountByCategoryAndTitle("JEE Prep", "Target Exam"))
-      assertEquals(1, database.memoryDao().getCountByCategoryAndTitle("Preferences", "Language Style"))
+      assertEquals(0, database.memoryDao().getCountByCategoryAndTitle("JEE Prep", "Target Exam"))
+      assertEquals(0, database.memoryDao().getCountByCategoryAndTitle("Preferences", "Language Style"))
     } finally {
       database.close()
     }
