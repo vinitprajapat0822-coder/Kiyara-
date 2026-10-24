@@ -329,9 +329,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 val bannerMessage = if (command is DeviceCommand.ReadNotifications) result.message.take(500) else result.message.take(180)
                 _statusBanner.value = "${label} • ${bannerMessage}"
-            } catch (error: Exception) {
-                spokenResult = "Device action failed: ${error.localizedMessage ?: "unknown Android error"}"
-                _statusBanner.value = "FAILED • $spokenResult"
+            } catch (_: Exception) {
+                // Exception messages can contain private values, paths, or system details.
+                // Keep the persisted and spoken failure generic; do not leak raw exception text.
+                spokenResult = "Device action failed. Check permissions and try again."
+                _statusBanner.value = "FAILED • Device action could not be completed."
                 runCatching {
                     chatDao.insertMessage(ChatMessage(role = "assistant", content = spokenResult, mode = "device_control"))
                 }
