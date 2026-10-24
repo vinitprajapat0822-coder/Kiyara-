@@ -132,8 +132,8 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                         Box(Modifier.size(18.dp).clip(CircleShape).background(Brush.linearGradient(listOf(NeonCyan, ElectricViolet))))
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text("Liquid Glass 27 · Midnight", color = CoolWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                            Text("One unified frosted-glass surface with cyan/violet highlights and a darker edge.", color = TextMuted, fontSize = 11.sp)
+                            Text("Midnight Liquid Glass", color = CoolWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text("One unified frosted-glass surface with soft mint/gold highlights and a darker edge.", color = TextMuted, fontSize = 11.sp)
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
@@ -154,7 +154,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
                         Text("AI connection", color = CoolWhite, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     Text("Active model: " + activeModel.ifBlank { "gemini-3.5-flash-lite" }, color = NeonCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                    Text("Gemini 3.5 Flash-Lite uses a protected request header, one transient-network retry, and explicit API error messages.", color = TextMuted, fontSize = 11.sp)
+                    Text("The configured Gemini model uses a protected request header, one transient-network retry, and explicit API error messages.", color = TextMuted, fontSize = 11.sp)
                     Spacer(Modifier.height(8.dp))
                     Text("Voice output", color = CoolWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Text(
