@@ -124,13 +124,13 @@ class CapabilityRegistry(
         return when (capability.id) {
             "haptic_pulse" -> {
                 val ok = triggerHaptic()
-                logAudit(capability, if (ok) "SUCCESS" else "FAILED", "Haptic pulse triggered on device.")
+                logAudit(capability, if (ok) "SUCCESS" else "FAILED", if (ok) "Haptic pulse dispatched to the device." else "Haptic hardware was unavailable or the pulse failed.")
                 if (ok) ExecutionResult.Success("Haptic pulse transmitted successfully.")
                 else ExecutionResult.Error("Vibration hardware unavailable.")
             }
             "clipboard_copy" -> {
                 val ok = copyToClipboard(parameter)
-                logAudit(capability, if (ok) "SUCCESS" else "FAILED", "Copied ${parameter.length} chars to clipboard.")
+                logAudit(capability, if (ok) "SUCCESS" else "FAILED", if (ok) "Copied ${parameter.length} chars to clipboard." else "Clipboard service unavailable; content was not copied.")
                 if (ok) ExecutionResult.Success("Copied snippet to clipboard safely.")
                 else ExecutionResult.Error("Failed to write to clipboard.")
             }
@@ -177,9 +177,9 @@ class CapabilityRegistry(
 
     private fun copyToClipboard(text: String): Boolean {
         return try {
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return false
             val clip = ClipData.newPlainText("KIARAA AI", text)
-            clipboard?.setPrimaryClip(clip)
+            clipboard.setPrimaryClip(clip)
             true
         } catch (e: Exception) {
             false
