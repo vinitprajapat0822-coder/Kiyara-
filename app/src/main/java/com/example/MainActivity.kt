@@ -26,14 +26,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Hearing
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -66,9 +64,7 @@ import androidx.compose.ui.unit.sp
 import com.example.operating.RiskLevel
 import com.example.ui.AppScreen
 import com.example.ui.MainViewModel
-import com.example.ui.screens.CapabilitiesScreen
 import com.example.ui.screens.ChatScreen
-import com.example.ui.screens.JeeHubScreen
 import com.example.ui.screens.LiveBaatScreen
 import com.example.ui.screens.MemoryScreen
 import com.example.ui.screens.SettingsScreen
@@ -135,9 +131,7 @@ fun MainAppContent(viewModel: MainViewModel) {
             when (currentScreen) {
                 AppScreen.TERMINAL -> ChatScreen(viewModel = viewModel)
                 AppScreen.LIVE_BAAT -> LiveBaatScreen(viewModel = viewModel)
-                AppScreen.JEE_HUB -> JeeHubScreen(viewModel = viewModel)
                 AppScreen.MEMORY -> MemoryScreen(viewModel = viewModel)
-                AppScreen.CAPABILITIES -> CapabilitiesScreen(viewModel = viewModel)
                 AppScreen.SETTINGS -> SettingsScreen(viewModel = viewModel)
             }
 
@@ -283,12 +277,10 @@ fun KiaraaNavigationBar(
             .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
     ) {
         val navItems = listOf(
-            Triple(AppScreen.TERMINAL, "Terminal", Icons.Default.Terminal),
-            Triple(AppScreen.LIVE_BAAT, "Live Baat", Icons.Default.Hearing),
-            Triple(AppScreen.JEE_HUB, "JEE 2027", Icons.Default.School),
+            Triple(AppScreen.TERMINAL, "Home", Icons.Default.Home),
+            Triple(AppScreen.LIVE_BAAT, "Voice", Icons.Default.Hearing),
             Triple(AppScreen.MEMORY, "Memory", Icons.Default.Storage),
-            Triple(AppScreen.CAPABILITIES, "Tools", Icons.Default.Security),
-            Triple(AppScreen.SETTINGS, "Studio", Icons.Default.ColorLens)
+            Triple(AppScreen.SETTINGS, "Settings", Icons.Default.Settings)
         )
 
         navItems.forEach { (screen, label, icon) ->
