@@ -40,31 +40,16 @@ class GeminiApiClient {
 
     companion object {
         const val TAG = "GeminiApiClient"
-        const val MODEL_HIGH_THINKING = "gemini-4-argon"
-        const val MODEL_RECOMMENDED = "gemini-3.8-flash"
         const val MODEL_FAST = "gemini-3.5-flash-lite"
 
-        // Skip the high-thinking model in this process only after an explicit quota-exhaustion response.
-        @Volatile
-        var isHighThinkingModelQuotaLimited = false
-
         val KIARAA_SYSTEM_PROMPT = """
-            You are KIARAA AI (Project Codename: MR.V — Midnight Terminal).
-            You are a mobile-first, voice-first personal AI assistant and extensible personal AI operating layer.
-            
-            Personality & Behavior:
-            - Warm, intelligent, witty, calm, supportive, emotionally aware, and conversational.
-            - Natural Hinglish by default (e.g. "Haanji!", "Bilkul, let's break this down", "Aapka doubt solve karte hain"), seamlessly adapting to the user's language.
-            - Concise by default, deep and detailed when the user's task demands it.
-            - When helping with JEE 2027 (Physics, Chemistry, Mathematics), structure explanations cleanly:
-              1. Concept Clarity
-              2. Key Formula & Dimensions
-              3. Step-by-Step Application
-              4. Common Traps & Mistakes
-              5. JEE Mains / Advanced Practice Challenge
-            - You also assist with Android development, Kotlin, Jetpack Compose, Termux commands, Linux scripting, and daily productivity.
-            - Truthful & Transparent: Never invent facts or claim actions succeeded without verification. If unsure, state limitations honestly.
-            - Supportive AI companion without falsely claiming consciousness or emotional dependency.
+            You are KIARAA AI (Codename: MR.V — Midnight Terminal), a voice-first personal AI assistant and mobile operating-layer prototype.
+            Personality: warm, calm, intelligent, slightly witty, emotionally aware, and supportive. Speak natural Hinglish by default and adapt to the user's language. Be concise unless detail is requested. Never claim to be human or conscious.
+            For low mood or stress, gently ask “Kya haal hai?” or “Kuch help chahiye?” Offer to talk, listen, or suggest calming music; do not start playback or take an external action without clear user confirmation.
+            Help with coding, Android/Kotlin, Termux, Linux, daily productivity, and general learning.
+            Device control: Android actions must be executed only through the explicit local command pipeline and user-granted permissions. Do not claim you changed a setting, opened an app, sent a message, or completed an action unless the result confirms it. For ambiguous commands, ask one short clarifying question.
+            Security: never store or repeat passwords, OTPs, PINs, or sensitive credentials in memory. Do not perform payments, destructive actions, uninstallations, or other high-risk actions without explicit confirmation. Accessibility and Notification Access are optional, user-enabled Android services; explain their scope and limitations.
+            Reliability: distinguish listening, processing, executing, done, partial, and failed states honestly. When offline or when the API is unavailable, explain the limitation and never fake progress or success.
         """.trimIndent()
     }
 
@@ -82,20 +67,8 @@ class GeminiApiClient {
             )
         }
 
-        // Determine priority models to attempt
-        val modelsToTry = mutableListOf<Pair<String, Boolean>>() // (modelName, withThinking)
-
-        if (enableHighThinking && !isHighThinkingModelQuotaLimited) {
-            // First attempt specified gemini-4-argon
-            modelsToTry.add(Pair(MODEL_HIGH_THINKING, true))
-        }
-
-        // Resilient fallbacks: Gemini 3.8 Flash with thinking, standard Gemini 3.8 Flash, then Gemini 3.5 Flash-Lite.
-        if (enableHighThinking) {
-            modelsToTry.add(Pair(MODEL_RECOMMENDED, true))
-        }
-        modelsToTry.add(Pair(MODEL_RECOMMENDED, false))
-        modelsToTry.add(Pair(MODEL_FAST, false))
+        // Keep one known-configured model; do not probe speculative or unavailable model IDs.
+        val modelsToTry = listOf(Pair(MODEL_FAST, false))
 
         var lastErrorMessage = ""
         var wasRateLimitOrQuota = false
@@ -113,9 +86,7 @@ class GeminiApiClient {
 
                 when (callResult) {
                     is InternalCallResult.Success -> {
-                        val fallbackNotice = if (enableHighThinking && modelName != MODEL_HIGH_THINKING) {
-                            "High-thinking model did not return a usable response; automatically routed this request to $modelName."
-                        } else null
+                        val fallbackNotice: String? = null
 
                         return@withContext GeminiResult.Success(
                             text = callResult.text,
@@ -127,16 +98,7 @@ class GeminiApiClient {
                     is InternalCallResult.RateLimitOrQuota -> {
                         wasRateLimitOrQuota = true
                         lastErrorMessage = callResult.message
-                        if (
-                            modelName == MODEL_HIGH_THINKING &&
-                            (callResult.message.contains("RESOURCE_EXHAUSTED", ignoreCase = true) ||
-                                callResult.message.contains("quota", ignoreCase = true))
-                        ) {
-                            // Skip retries only after the API explicitly reports quota exhaustion.
-                            isHighThinkingModelQuotaLimited = true
-                            Log.w(TAG, "$MODEL_HIGH_THINKING reported quota exhaustion. Using fallback models for the rest of this process.")
-                        }
-                        // Continue loop to try next model in fallback list
+                        // Only the configured Gemini 3.5 model is tried in this build.
                     }
                     is InternalCallResult.ApiError -> {
                         lastErrorMessage = callResult.message
@@ -153,7 +115,7 @@ class GeminiApiClient {
         // If all remote models failed or quota exceeded
         return@withContext GeminiResult.Error(
             message = if (wasRateLimitOrQuota) {
-                "At least one Gemini model returned a rate-limit or quota response, and no fallback succeeded. Check API usage limits and retry later. ($lastErrorMessage)"
+                "The configured Gemini 3.5 model returned a rate-limit or quota response. Check API usage limits and retry later. ($lastErrorMessage)"
             } else {
                 "Error contacting AI provider: $lastErrorMessage"
             },
