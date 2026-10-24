@@ -99,8 +99,8 @@ fun SettingsScreen(viewModel: MainViewModel) {
         val component = ComponentName(context, KiaraaAccessibilityService::class.java).flattenToString()
         master && enabled.split(':').any { it.equals(component, ignoreCase = true) }
     }
-    val notificationEnabled = remember(refresh) { com.example.operating.KiaraaNotificationListenerService.hasAccess(context) }
-    val writeEnabled = remember(refresh) { Settings.System.canWrite(context) }
+    val notificationEnabled = remember(accessRefresh) { com.example.operating.KiaraaNotificationListenerService.hasAccess(context) }
+    val writeEnabled = remember(accessRefresh) { Settings.System.canWrite(context) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(ObsidianDark).padding(14.dp),
