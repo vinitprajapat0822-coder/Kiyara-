@@ -3,6 +3,8 @@ package com.example.voice
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -37,6 +39,13 @@ class VoiceManager(
     private var speechRecognizer: SpeechRecognizer? = null
     private var textToSpeech: TextToSpeech? = null
     private var isTtsInitialized = false
+    @Volatile private var continuousListeningEnabled = false
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val restartListening = Runnable {
+        if (continuousListeningEnabled && _voiceState.value != VoiceState.SPEAKING && _voiceState.value != VoiceState.LISTENING) {
+            startListening()
+        }
+    }
 
     private val _voiceState = MutableStateFlow(VoiceState.IDLE)
     val voiceState: StateFlow<VoiceState> = _voiceState.asStateFlow()
@@ -77,12 +86,14 @@ class VoiceManager(
                 override fun onDone(utteranceId: String?) {
                     _voiceState.value = VoiceState.IDLE
                     _audioRms.value = 0f
+                    scheduleContinuousRestart()
                 }
 
                 @Deprecated("Deprecated in Java")
                 override fun onError(utteranceId: String?) {
                     _voiceState.value = VoiceState.IDLE
                     _audioRms.value = 0f
+                    scheduleContinuousRestart()
                 }
             })
         } else {
@@ -90,7 +101,19 @@ class VoiceManager(
         }
     }
 
+    fun setContinuousListeningEnabled(enabled: Boolean) {
+        continuousListeningEnabled = enabled
+        if (!enabled) mainHandler.removeCallbacks(restartListening)
+    }
+
+    private fun scheduleContinuousRestart(delayMillis: Long = 450L) {
+        if (!continuousListeningEnabled) return
+        mainHandler.removeCallbacks(restartListening)
+        mainHandler.postDelayed(restartListening, delayMillis)
+    }
+
     fun startListening() {
+        mainHandler.removeCallbacks(restartListening)
         stopSpeaking()
         _errorMessage.value = null
         _partialText.value = ""
@@ -220,16 +243,23 @@ class VoiceManager(
                 _errorMessage.value = errorMsg
                 _voiceState.value = VoiceState.IDLE
                 _audioRms.value = 0f
+                if (error == SpeechRecognizer.ERROR_NO_MATCH ||
+                    error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT ||
+                    error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) {
+                    scheduleContinuousRestart(1200L)
+                }
             }
 
             override fun onResults(results: Bundle?) {
                 _voiceState.value = VoiceState.IDLE
                 _audioRms.value = 0f
                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                if (!matches.isNullOrEmpty()) {
+                if (!matches.isNullOrEmpty() && matches[0].isNotBlank()) {
                     val text = matches[0]
                     _recognizedText.value = text
                     onFinalSpeechResult?.invoke(text)
+                } else {
+                    scheduleContinuousRestart(900L)
                 }
             }
 
@@ -245,6 +275,8 @@ class VoiceManager(
     }
 
     fun destroy() {
+        continuousListeningEnabled = false
+        mainHandler.removeCallbacksAndMessages(null)
         try {
             speechRecognizer?.destroy()
             textToSpeech?.stop()
