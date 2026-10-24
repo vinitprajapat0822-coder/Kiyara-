@@ -74,11 +74,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ -z "${GEMINI_API_KEY:-}" ]]; then
+            echo "::error::GEMINI_API_KEY repository secret is missing. Add it in Settings > Secrets and variables > Actions, then rerun this workflow."
+            exit 1
+          fi
           : > .env
-          if [[ -n "${GEMINI_API_KEY:-}" ]]; then printf 'GEMINI_API_KEY=%s\n' "$GEMINI_API_KEY" >> .env; fi
+          printf 'GEMINI_API_KEY=%s\n' "$GEMINI_API_KEY" >> .env
           if [[ -n "${ELEVENLABS_API_KEY:-}" ]]; then printf 'ELEVENLABS_API_KEY=%s\n' "$ELEVENLABS_API_KEY" >> .env; fi
           if [[ -n "${ELEVENLABS_VOICE_ID:-}" ]]; then printf 'ELEVENLABS_VOICE_ID=%s\n' "$ELEVENLABS_VOICE_ID" >> .env; fi
-          if [[ ! -s .env ]]; then rm -f .env; echo "No API repository secrets configured; Gradle will use .env.example placeholders."; else echo "API secret file configured (values hidden)."; fi
+          echo "Gemini API secret configured (value hidden)."
+          if [[ -n "${ELEVENLABS_API_KEY:-}" && -n "${ELEVENLABS_VOICE_ID:-}" ]]; then echo "ElevenLabs secrets configured (values hidden)."; else echo "ElevenLabs secrets are optional or incomplete; Android TTS fallback remains available."; fi
 
       - name: Run unit tests and build debug APK
         run: ./gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug
