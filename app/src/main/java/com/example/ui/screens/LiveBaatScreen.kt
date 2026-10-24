@@ -127,7 +127,7 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
                     .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = "Live Baat (Realtime)",
+                    text = "Live Baat",
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -267,7 +267,7 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
                         text = if (partialText.isNotBlank()) "\"$partialText...\""
                         else if (recognizedText.isNotBlank()) "\"$recognizedText\""
                         else if (voiceState == VoiceState.SPEAKING) "KIARAA vocalizing response..."
-                        else "Hinglish voice ready. Ask anything about JEE, code, or schedule.",
+                        else "Hinglish voice ready. Ask about coding, daily tasks, or phone controls.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (partialText.isNotBlank() || recognizedText.isNotBlank()) NeonCyan else TextMuted,
                         textAlign = TextAlign.Center
