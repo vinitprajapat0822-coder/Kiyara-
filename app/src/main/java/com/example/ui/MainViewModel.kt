@@ -16,7 +16,6 @@ import com.example.operating.ExecutionResult
 import com.example.operating.DeviceCommand
 import com.example.operating.DeviceCommandParser
 import com.example.operating.DeviceCommandExecutor
-import com.example.operating.requiresExplicitConfirmation
 import com.example.operating.DeviceActionStatus
 import com.example.ui.components.OrbVisualTheme
 import com.example.voice.VoiceManager
