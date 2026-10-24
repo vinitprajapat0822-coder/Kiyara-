@@ -48,7 +48,7 @@ Conversation Orchestrator
 - **Permission + Risk Gate:** checks Android version, permission state, target app, and action risk before execution. Purchases/payments, sending messages, calls, deleting data, account/security changes, or other consequential actions require action-specific confirmation. Accessibility is never enabled silently.
 - **Capability Registry:** each capability declares prerequisites, supported Android versions, execution method, and a verifiable success/failure result.
 - **Action Executor:** uses Android APIs where available; Accessibility only for explicit screen interaction. Never claims success merely because an intent was launched.
-- **Voice Provider:** separate interface for speech recognition and speech synthesis. The initial build can use Android speech APIs; ElevenLabs is a later selectable TTS provider once the owner supplies the Voice ID and configures credentials.
+- **Voice Provider:** separate interface for speech recognition and speech synthesis. Android speech input and system TTS are the fallback path. Optional ElevenLabs output is wired through a separate provider and requires both an API key and Voice ID; verify playback on the target device before treating it as production-ready.
 - **Screen Vision:** separate opt-in path. Use Android screen-capture consent (MediaProjection) for screenshots/video frames, or Accessibility's visible UI tree when enabled. OCR/vision results are observations, not guaranteed truth. Ask before tapping, typing, sending, or submitting a consequential action.
 
 ## Capability matrix
