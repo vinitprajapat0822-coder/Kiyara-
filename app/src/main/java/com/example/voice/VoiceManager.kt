@@ -2,6 +2,15 @@ package com.example.voice
 
 import android.content.Context
 import android.content.Intent
+import android.media.MediaPlayer
+import com.example.BuildConfig
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+import java.io.File
+import java.util.concurrent.TimeUnit
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -39,6 +48,13 @@ class VoiceManager(
     private var speechRecognizer: SpeechRecognizer? = null
     private var textToSpeech: TextToSpeech? = null
     private var isTtsInitialized = false
+    private var elevenLabsPlayer: MediaPlayer? = null
+    private var speechRequestId = 0
+    private val elevenLabsClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(15, TimeUnit.SECONDS)
+        .build()
     @Volatile private var continuousListeningEnabled = false
     private val mainHandler = Handler(Looper.getMainLooper())
     private val restartListening = Runnable {
@@ -175,22 +191,123 @@ class VoiceManager(
     }
 
     fun speak(text: String, utteranceId: String = "kiaraa_speech") {
-        if (!isTtsInitialized || textToSpeech == null) {
-            Log.w(TAG, "TTS not ready yet")
-            return
-        }
         cancelListening()
-        // Strip markdown formatting before vocalizing
+        // Strip markdown formatting before vocalizing and cap request cost/latency.
         val cleanSpeech = text
             .replace(Regex("[*#_`>]"), "")
             .replace(Regex("\\[.*?\\]\\(.*?\\)"), "")
-            .take(600) // Keep spoken responses concise and natural
+            .take(600)
+        if (cleanSpeech.isBlank()) return
 
+        val apiKey = BuildConfig.ELEVENLABS_API_KEY?.trim().orEmpty()
+        val voiceId = BuildConfig.ELEVENLABS_VOICE_ID?.trim().orEmpty()
+        if (apiKey.isNotEmpty() && apiKey != "MY_ELEVENLABS_API_KEY" &&
+            voiceId.isNotEmpty() && voiceId != "MY_ELEVENLABS_VOICE_ID") {
+            val requestId = ++speechRequestId
+            stopElevenLabsPlayback()
+            _voiceState.value = VoiceState.PROCESSING
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    val payload = JSONObject()
+                        .put("text", cleanSpeech)
+                        .put("model_id", "eleven_multilingual_v2")
+                        .put("voice_settings", JSONObject()
+                            .put("stability", 0.45)
+                            .put("similarity_boost", 0.8))
+                        .toString()
+                    val request = Request.Builder()
+                        .url("https://api.elevenlabs.io/v1/text-to-speech/$voiceId?output_format=mp3_44100_128")
+                        .header("xi-api-key", apiKey)
+                        .header("Accept", "audio/mpeg")
+                        .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                        .build()
+                    elevenLabsClient.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) {
+                            throw IllegalStateException("ElevenLabs returned HTTP ${response.code}")
+                        }
+                        val bytes = response.body?.bytes()
+                            ?: throw IllegalStateException("ElevenLabs returned empty audio")
+                        if (bytes.isEmpty()) throw IllegalStateException("ElevenLabs returned empty audio")
+                        val audioFile = File(context.cacheDir, "kiaraa_voice_${requestId}.mp3")
+                        audioFile.writeBytes(bytes)
+                        mainHandler.post {
+                            if (requestId != speechRequestId) {
+                                audioFile.delete()
+                                return@post
+                            }
+                            playElevenLabsFile(audioFile, utteranceId)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "ElevenLabs voice unavailable; using Android TTS fallback", e)
+                    mainHandler.post {
+                        if (requestId == speechRequestId) speakWithAndroidTts(cleanSpeech, utteranceId)
+                    }
+                }
+            }
+            return
+        }
+        speakWithAndroidTts(cleanSpeech, utteranceId)
+    }
+
+    private fun speakWithAndroidTts(text: String, utteranceId: String) {
+        if (!isTtsInitialized || textToSpeech == null) {
+            _voiceState.value = VoiceState.ERROR
+            _errorMessage.value = "Voice engine is not ready yet."
+            return
+        }
         val params = Bundle().apply {
             putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
         }
         _voiceState.value = VoiceState.SPEAKING
-        textToSpeech?.speak(cleanSpeech, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+        textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+    }
+
+    private fun playElevenLabsFile(audioFile: File, utteranceId: String) {
+        stopElevenLabsPlayback()
+        try {
+            val player = MediaPlayer()
+            elevenLabsPlayer = player
+            player.setDataSource(audioFile.absolutePath)
+            player.setOnPreparedListener {
+                _voiceState.value = VoiceState.SPEAKING
+                it.start()
+            }
+            player.setOnCompletionListener {
+                runCatching { it.release() }
+                if (elevenLabsPlayer === it) elevenLabsPlayer = null
+                audioFile.delete()
+                _voiceState.value = VoiceState.IDLE
+                _audioRms.value = 0f
+                scheduleContinuousRestart()
+            }
+            player.setOnErrorListener { mp, _, _ ->
+                runCatching { mp.release() }
+                if (elevenLabsPlayer === mp) elevenLabsPlayer = null
+                audioFile.delete()
+                _voiceState.value = VoiceState.IDLE
+                _audioRms.value = 0f
+                scheduleContinuousRestart()
+                true
+            }
+            player.prepareAsync()
+        } catch (e: Exception) {
+            Log.w(TAG, "Unable to play ElevenLabs audio; using Android TTS fallback", e)
+            runCatching { elevenLabsPlayer?.release() }
+            elevenLabsPlayer = null
+            audioFile.delete()
+            speakWithAndroidTts("", utteranceId)
+        }
+    }
+
+    private fun stopElevenLabsPlayback() {
+        val player = elevenLabsPlayer
+        elevenLabsPlayer = null
+        if (player != null) {
+            runCatching { if (player.isPlaying) player.stop() }
+            runCatching { player.reset() }
+            runCatching { player.release() }
+        }
     }
 
     fun stopSpeaking() {
@@ -276,7 +393,9 @@ class VoiceManager(
 
     fun destroy() {
         continuousListeningEnabled = false
+        speechRequestId++
         mainHandler.removeCallbacksAndMessages(null)
+        stopElevenLabsPlayback()
         try {
             speechRecognizer?.destroy()
             textToSpeech?.stop()
