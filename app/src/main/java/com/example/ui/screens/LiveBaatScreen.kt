@@ -32,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +55,7 @@ import com.example.ui.MainViewModel
 import com.example.ui.components.AnimatedOrb
 import com.example.ui.components.AudioWaveformBar
 import com.example.ui.components.LiquidGlassCard
+import com.example.ui.components.liquidGlassBackground
 import com.example.ui.theme.CoolWhite
 import com.example.ui.theme.CyanGlow
 import com.example.ui.theme.ElectricViolet
@@ -77,10 +79,14 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
     val audioRms by viewModel.voiceManager.audioRms.collectAsState()
     val partialText by viewModel.voiceManager.partialText.collectAsState()
     val recognizedText by viewModel.voiceManager.recognizedText.collectAsState()
-    val orbTheme by viewModel.orbTheme.collectAsState()
     val orbPulsation by viewModel.orbPulsationRate.collectAsState()
 
-    var isLiveBaatMode by remember { mutableStateOf(true) } // true: Live Baat, false: Saathi Mode
+    var isLiveBaatMode by remember { mutableStateOf(true) } // Live Baat listens again after each response while this screen is active.
+
+    LaunchedEffect(isLiveBaatMode) {
+        viewModel.voiceManager.setContinuousListeningEnabled(isLiveBaatMode)
+        if (!isLiveBaatMode) viewModel.voiceManager.cancelListening()
+    }
 
     var hasAudioPermission by remember {
         mutableStateOf(
@@ -100,7 +106,7 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(ObsidianDark)
+            .liquidGlassBackground()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
@@ -127,7 +133,7 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
                     .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = "Live Baat (Realtime)",
+                    text = "Live Baat",
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -169,14 +175,24 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
                 voiceState = voiceState,
                 size = 210.dp,
                 audioRms = audioRms,
-                visualTheme = orbTheme,
-                pulsationRate = orbPulsation,
+                                pulsationRate = orbPulsation,
                 onClick = {
                     if (voiceState == VoiceState.SPEAKING) {
                         viewModel.voiceManager.stopSpeaking()
                     } else if (hasAudioPermission) {
-                        if (voiceState == VoiceState.LISTENING) viewModel.voiceManager.stopListening()
-                        else viewModel.voiceManager.startListening()
+                        if (isLiveBaatMode) {
+                            if (voiceState == VoiceState.LISTENING) {
+                                viewModel.voiceManager.setContinuousListeningEnabled(false)
+                                viewModel.voiceManager.cancelListening()
+                            } else {
+                                viewModel.voiceManager.setContinuousListeningEnabled(true)
+                                viewModel.voiceManager.startListening()
+                            }
+                        } else if (voiceState == VoiceState.LISTENING) {
+                            viewModel.voiceManager.stopListening()
+                        } else {
+                            viewModel.voiceManager.startListening()
+                        }
                     } else {
                         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     }
@@ -267,7 +283,8 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
                         text = if (partialText.isNotBlank()) "\"$partialText...\""
                         else if (recognizedText.isNotBlank()) "\"$recognizedText\""
                         else if (voiceState == VoiceState.SPEAKING) "KIARAA vocalizing response..."
-                        else "Hinglish voice ready. Ask anything about JEE, code, or schedule.",
+                        else if (isLiveBaatMode) "Live Baat will listen again after each response while this screen stays open."
+                    else "Saathi listens once per turn. Ask about coding, daily tasks, or phone controls.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (partialText.isNotBlank() || recognizedText.isNotBlank()) NeonCyan else TextMuted,
                         textAlign = TextAlign.Center
@@ -317,7 +334,13 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
             IconButton(
                 onClick = {
                     if (hasAudioPermission) {
-                        if (voiceState == VoiceState.LISTENING) {
+                        if (isLiveBaatMode && voiceState == VoiceState.LISTENING) {
+                            viewModel.voiceManager.setContinuousListeningEnabled(false)
+                            viewModel.voiceManager.cancelListening()
+                        } else if (isLiveBaatMode) {
+                            viewModel.voiceManager.setContinuousListeningEnabled(true)
+                            viewModel.voiceManager.startListening()
+                        } else if (voiceState == VoiceState.LISTENING) {
                             viewModel.voiceManager.stopListening()
                         } else {
                             viewModel.voiceManager.startListening()

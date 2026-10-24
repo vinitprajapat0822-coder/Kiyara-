@@ -9,11 +9,17 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ChatDao {
+    @Query("SELECT COUNT(*) FROM chat_messages")
+    suspend fun getMessageCount(): Int
+
     @Query("SELECT * FROM chat_messages ORDER BY timestamp ASC")
     fun getAllMessages(): Flow<List<ChatMessage>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: ChatMessage): Long
+
+    @Query("UPDATE chat_messages SET content = :replacement, mode = 'general' WHERE role = 'assistant' AND content LIKE '%JEE 2027 prep%' AND content LIKE '%Codename: MR.V%'")
+    suspend fun replaceLegacyWelcomeMessage(replacement: String)
 
     @Query("DELETE FROM chat_messages")
     suspend fun clearHistory()

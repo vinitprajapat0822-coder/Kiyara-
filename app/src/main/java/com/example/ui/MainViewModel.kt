@@ -6,13 +6,18 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.api.GeminiApiClient
 import com.example.data.api.GeminiResult
 import com.example.data.local.AppDatabase
+import com.example.data.local.DefaultDataSeeder
 import com.example.data.model.AuditLogEntry
 import com.example.data.model.ChatMessage
 import com.example.data.model.MemoryItem
 import com.example.operating.CapabilityInfo
 import com.example.operating.CapabilityRegistry
 import com.example.operating.ExecutionResult
-import com.example.ui.components.OrbVisualTheme
+import com.example.operating.DeviceCommand
+import com.example.operating.DeviceCommandParser
+import com.example.operating.DeviceCommandExecutor
+import com.example.operating.KiaraaNotificationListenerService
+import com.example.operating.DeviceActionStatus
 import com.example.voice.VoiceManager
 import com.example.voice.VoiceState
 import kotlinx.coroutines.Dispatchers
@@ -23,12 +28,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+data class PendingDeviceConfirmation(
+    val command: DeviceCommand,
+    val originalInput: String,
+    val fromVoice: Boolean,
+    val title: String,
+    val details: String
+)
+
 enum class AppScreen {
     TERMINAL,
     LIVE_BAAT,
-    JEE_HUB,
     MEMORY,
-    CAPABILITIES,
     SETTINGS
 }
 
@@ -40,6 +51,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val auditDao = database.auditDao()
 
     private val geminiClient = GeminiApiClient()
+    private val deviceCommandExecutor = DeviceCommandExecutor(application)
     val capabilityRegistry = CapabilityRegistry(application, auditDao)
     val voiceManager = VoiceManager(application, viewModelScope)
 
@@ -60,16 +72,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // UI & Thinking State
-    private val _isHighThinking = MutableStateFlow(true) // Default to High Thinking for deep JEE & reasoning
-    val isHighThinking: StateFlow<Boolean> = _isHighThinking.asStateFlow()
-
     private val _inputText = MutableStateFlow("")
     val inputText: StateFlow<String> = _inputText.asStateFlow()
 
     private val _isGenerating = MutableStateFlow(false)
     val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
 
-    private val _activeModelName = MutableStateFlow(GeminiApiClient.MODEL_HIGH_THINKING)
+    private val _activeModelName = MutableStateFlow(GeminiApiClient.MODEL_FAST)
     val activeModelName: StateFlow<String> = _activeModelName.asStateFlow()
 
     private val _isKeyMissing = MutableStateFlow(false)
@@ -82,10 +91,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _pendingConfirmation = MutableStateFlow<Pair<CapabilityInfo, String>?>(null)
     val pendingConfirmation: StateFlow<Pair<CapabilityInfo, String>?> = _pendingConfirmation.asStateFlow()
 
-    // Orb customization
-    private val _orbTheme = MutableStateFlow(OrbVisualTheme.MIDNIGHT_TERMINAL)
-    val orbTheme: StateFlow<OrbVisualTheme> = _orbTheme.asStateFlow()
+    // Potentially consequential screen interactions require an explicit UI confirmation.
+    private val _pendingDeviceConfirmation = MutableStateFlow<PendingDeviceConfirmation?>(null)
+    val pendingDeviceConfirmation: StateFlow<PendingDeviceConfirmation?> = _pendingDeviceConfirmation.asStateFlow()
 
+    // Single Midnight Liquid Glass visual identity; motion intensity remains adjustable.
     private val _orbPulsationRate = MutableStateFlow(1.0f)
     val orbPulsationRate: StateFlow<Float> = _orbPulsationRate.asStateFlow()
 
@@ -97,38 +107,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Seed initial welcoming message & default study memories if DB is empty
+        // Seed first-run data atomically without duplicating existing memories.
         viewModelScope.launch(Dispatchers.IO) {
-            seedDefaultsIfEmpty()
+            DefaultDataSeeder(database).seedIfNeeded()
         }
-    }
-
-    private suspend fun seedDefaultsIfEmpty() {
-        val initialMessages = listOf(
-            ChatMessage(
-                role = "assistant",
-                content = "Namaste! Main hoon **KIARAA** (Codename: MR.V — Midnight Terminal). Aapka voice-first personal AI assistant aur operating layer.\n\nJEE 2027 prep (Physics, Chemistry, Math), coding, Termux commands, ya daily planning — bataiye aaj hum kya solve karein?",
-                mode = "general"
-            )
-        )
-        // Check if messages already exist
-        // Pre-populate initial system memory for JEE 2027 context
-        memoryDao.insertMemory(
-            MemoryItem(
-                category = "JEE Prep",
-                title = "Target Exam",
-                content = "Targeting JEE 2027 Mains & Advanced. Focus on deep concept clarity and speed accuracy.",
-                source = "System Initializer"
-            )
-        )
-        memoryDao.insertMemory(
-            MemoryItem(
-                category = "Preferences",
-                title = "Language Style",
-                content = "Conversational Hinglish by default. Concise explanations with structured 5-stage breakdowns.",
-                source = "User Confirmed"
-            )
-        )
     }
 
     fun setScreen(screen: AppScreen) {
@@ -137,16 +119,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateInputText(text: String) {
         _inputText.value = text
-    }
-
-    fun toggleHighThinking() {
-        val next = !_isHighThinking.value
-        _isHighThinking.value = next
-        _activeModelName.value = if (next) GeminiApiClient.MODEL_HIGH_THINKING else GeminiApiClient.MODEL_FAST
-    }
-
-    fun setOrbTheme(theme: OrbVisualTheme) {
-        _orbTheme.value = theme
     }
 
     fun setOrbPulsationRate(rate: Float) {
@@ -159,7 +131,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun sendMessage(userText: String = _inputText.value, fromVoice: Boolean = false) {
         val trimmed = userText.trim()
-        if (trimmed.isEmpty() || _isGenerating.value) return
+        if (trimmed.isEmpty() || _isGenerating.value || _pendingDeviceConfirmation.value != null) return
+
+        val parsedCommand = DeviceCommandParser.parse(trimmed)
+        val deviceCommand = if (parsedCommand is DeviceCommand.OpenNotification) {
+            parsedCommand.copy(expectedKey = KiaraaNotificationListenerService.captureNotificationKey(parsedCommand.index))
+        } else {
+            parsedCommand
+        }
+        if (deviceCommand != null) {
+            // These screen actions are blocked in DeviceCommandExecutor until target-app
+            // focus can be guaranteed; do not show a misleading "Confirm action" dialog.
+            if (deviceCommand is DeviceCommand.Tap || deviceCommand is DeviceCommand.TypeText) {
+                executeDeviceCommand(trimmed, deviceCommand, fromVoice)
+                return
+            }
+            if (deviceCommand.requiresExplicitConfirmation()) {
+                val (title, details) = when (deviceCommand) {
+                    is DeviceCommand.Tap -> "Confirm screen tap" to
+                        "KIARAA will tap at (${deviceCommand.x.toInt()}, ${deviceCommand.y.toInt()}) on the current screen. This may activate a button, send content, or submit a form. Verify the intended target before continuing."
+                    is DeviceCommand.TypeText -> "Confirm text entry" to
+                        "KIARAA will enter this text into the currently focused field:\n“${deviceCommand.text.take(240)}${if (deviceCommand.text.length > 240) "…" else ""}”\n\nKIARAA will not tap Send or Submit. Verify the destination field before continuing."
+                    is DeviceCommand.OpenNotification -> "Open notification ${deviceCommand.index}?" to
+                        "KIARAA will open only the notification identified when this confirmation was prepared. The list is rechecked before opening; if it changed or the target cannot be verified, nothing will open. This may switch apps or reveal private content. No preview is shown here."
+                    else -> error("Confirmation requested for an unsupported command type.")
+                }
+                _inputText.value = ""
+                _pendingDeviceConfirmation.value = PendingDeviceConfirmation(
+                    command = deviceCommand,
+                    originalInput = trimmed,
+                    fromVoice = fromVoice,
+                    title = title,
+                    details = details
+                )
+                _statusBanner.value = "WAITING FOR CONFIRMATION • No screen action has been executed yet."
+            } else {
+                executeDeviceCommand(trimmed, deviceCommand, fromVoice)
+            }
+            return
+        }
 
         _inputText.value = ""
         _isGenerating.value = true
@@ -168,8 +178,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // 1. Record User Message
             val userMsg = ChatMessage(
                 role = "user",
-                content = trimmed,
-                mode = if (_isHighThinking.value) "high_thinking" else "general"
+                content = redactSensitiveForStorage(trimmed),
+                mode = "general"
             )
             chatDao.insertMessage(userMsg)
 
@@ -179,7 +189,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // 3. Request Gemini API (or local companion fallback if key missing)
             val result = geminiClient.generateResponse(
                 prompt = trimmed,
-                enableHighThinking = _isHighThinking.value,
+                enableHighThinking = false,
                 conversationHistory = historyList
             )
 
@@ -195,7 +205,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         content = result.text,
                         isThinking = result.thoughts.isNotEmpty(),
                         thoughts = result.thoughts,
-                        mode = if (_isHighThinking.value) "high_thinking" else "general"
+                        mode = "general"
                     )
                     chatDao.insertMessage(assistantMsg)
 
@@ -219,10 +229,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             voiceManager.speak(localResponse)
                         }
                         _statusBanner.value = "Local Companion Mode: Add GEMINI_API_KEY in AI Studio Secrets for live AI."
-                    } else if (result.isQuotaExceeded) {
+                    } else if (result.isRateLimitOrQuota) {
                         // Resilient recovery: Answer using local reasoning engine so user is never blocked
                         val localResponse = generateLocalCompanionResponse(trimmed) +
-                            "\n\n*(ℹ️ Note: Gemini API free-tier quota is currently exhausted for gemini-4-argon (limit 0). KIARAA answered via on-device reasoning engine).* "
+                            "\n\n*(Note: Gemini API rate limit or quota was reached. This is a limited offline response; full AI reasoning is unavailable until the API works again.)*"
                         val assistantMsg = ChatMessage(
                             role = "assistant",
                             content = localResponse,
@@ -233,7 +243,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         if (fromVoice || _currentScreen.value == AppScreen.LIVE_BAAT) {
                             voiceManager.speak(localResponse)
                         }
-                        _statusBanner.value = "Quota limit: gemini-4-argon limit is 0 on free tier. Switched to local companion."
+                        _statusBanner.value = "Gemini API rate limit or quota reached. Offline responses are limited."
                     } else {
                         val localResponse = generateLocalCompanionResponse(trimmed)
                         val assistantMsg = ChatMessage(
@@ -254,64 +264,84 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun generateLocalCompanionResponse(query: String): String {
         val q = query.lowercase()
         return when {
-            q.contains("physics") || q.contains("newton") || q.contains("mechanics") -> """
-                **[KIARAA Local Engine — Physics]**
-                
-                Haanji, Physics ke fundamentals clear karte hain!
-                
-                1. **Concept Clarity:** Newton's Second Law: F = dp/dt. When mass m is constant, F = m * a.
-                2. **Application:** Always isolate the body and draw a clean Free Body Diagram (FBD).
-                3. **Common Trap:** Normal reaction N is NOT always mg (e.g., in accelerated elevators or inclined planes where N = mg * cos(theta)).
-                4. **Practice Check:** A 2 kg block rests on a 30° incline (mu = 0.6). Calculate friction force. (Check if mg * sin(theta) <= mu * N).
-            """.trimIndent()
+            q.contains("termux") || q.contains("bash") || q.contains("android") || q.contains("kotlin") || q.contains("code") ->
+                "Haanji, main abhi offline/local mode mein hoon. Main safe command steps aur debugging guidance de sakti hoon, lekin phone par koi command chalane ka claim tabhi karungi jab execution verify ho."
+            listOf("mood kharab", "sad hoon", "tired hoon", "stress", "pareshan").any(q::contains) ->
+                "Kya haal hai? Main sun rahi hoon. Baat karni hai, thoda break plan karna hai, ya calming music ke options dekhne hain?"
+            else ->
+                "Haanji, main KIARAA hoon — Hinglish personal assistant. Gemini API abhi unavailable hai, isliye main sirf basic local help de sakti hoon. Network/API restore hone par detailed response milega; maine koi external action execute nahi kiya."
+        }
+    }
 
-            q.contains("chemistry") || q.contains("organic") || q.contains("sn1") || q.contains("sn2") -> """
-                **[KIARAA Local Engine — Chemistry]**
-                
-                Bilkul, SN1 vs SN2 mechanism comparison:
-                
-                1. **SN1:** Two-step, carbocation intermediate, polar protic solvent favors, tertiary > secondary > primary. Racemization occurs.
-                2. **SN2:** Concerted single-step, backside attack, polar aprotic solvent (e.g. Acetone, DMSO), primary > secondary. Walden Inversion occurs!
-                3. **JEE Tip:** Steric hindrance is the dominating factor for SN2, while carbocation stability governs SN1.
-            """.trimIndent()
+    fun confirmPendingDeviceAction() {
+        val pending = _pendingDeviceConfirmation.value ?: return
+        _pendingDeviceConfirmation.value = null
+        executeDeviceCommand(pending.originalInput, pending.command, pending.fromVoice)
+    }
 
-            q.contains("math") || q.contains("calculus") || q.contains("integration") -> """
-                **[KIARAA Local Engine — Mathematics]**
-                
-                Chaliye Calculus ka standard rule recall karein:
-                
-                1. **Integration by Parts:** Integral u*v dx = u * Integral(v dx) - Integral [ u' * Integral(v dx) ] dx
-                2. **ILATE Rule:** Inverse, Logarithmic, Algebraic, Trigonometric, Exponential.
-                3. **JEE Mains Trap:** Don't forget the constant + C in indefinite integrals, and watch for symmetry in definite integrals: Integral from -a to a of f(x)dx = 0 if f(x) is odd!
-            """.trimIndent()
+    fun cancelPendingDeviceAction() {
+        _pendingDeviceConfirmation.value = null
+        _statusBanner.value = "CANCELLED • No screen action was executed."
+    }
 
-            q.contains("termux") || q.contains("bash") || q.contains("android") -> """
-                **[KIARAA Local Engine — Tech & Termux]**
-                
-                Termux setup aur command guidance:
-                - Fresh environment update: `pkg update && pkg upgrade -y`
-                - Essential tools: `pkg install git python clang nodejs -y`
-                - Storage access: `termux-setup-storage`
-                
-                Aap kis package ya script par kaam kar rahe hain?
-            """.trimIndent()
-
-            else -> """
-                **[KIARAA AI — Midnight Terminal]**
-                
-                Haanji, aapka sandesh mila!
-                
-                > "$query"
-                
-                Main aapke JEE preparation (Physics, Chemistry, Math), coding, Android development, aur schedule management ke liye fully ready hoon.
-                
-                *(Note: Real-time Gemini 4-Argon reasoning requires configuring GEMINI_API_KEY in the AI Studio Secrets panel).*
-            """.trimIndent()
+    private fun executeDeviceCommand(input: String, command: DeviceCommand, fromVoice: Boolean) {
+        _inputText.value = ""
+        _isGenerating.value = true
+        _statusBanner.value = "PROCESSING • Checking requested device action…"
+        viewModelScope.launch {
+            var spokenResult = "Device action failed."
+            try {
+                val safeUserText = if (command is DeviceCommand.TypeText) {
+                    "Type-text request received (text payload not saved)."
+                } else input
+                chatDao.insertMessage(ChatMessage(role = "user", content = safeUserText, mode = "device_control"))
+                _statusBanner.value = "EXECUTING • Running the local Android action…"
+                val result = deviceCommandExecutor.execute(command)
+                spokenResult = result.message
+                if (result.status == DeviceActionStatus.NEEDS_ACCESSIBILITY) {
+                    _currentScreen.value = AppScreen.SETTINGS
+                }
+                // Notification previews and screen text can contain private messages or account data.
+                // Show/speak results for this interaction, but never persist their contents in chat history.
+                val storedResult = when (command) {
+                    is DeviceCommand.ReadNotifications ->
+                        "Recent notification previews were read for this interaction and were not saved to chat history."
+                    DeviceCommand.ReadScreen ->
+                        "Screen text was read for this interaction and was not saved to chat history."
+                    else -> result.message.take(1600)
+                }
+                chatDao.insertMessage(ChatMessage(role = "assistant", content = storedResult, mode = "device_control"))
+                if (fromVoice || _currentScreen.value == AppScreen.LIVE_BAAT) voiceManager.speak(spokenResult)
+                val label = when (result.status) {
+                    DeviceActionStatus.SUCCESS -> "DONE"
+                    DeviceActionStatus.PARTIAL -> "PARTIAL"
+                    DeviceActionStatus.CLARIFICATION -> "NEEDS CLARIFICATION"
+                    DeviceActionStatus.NEEDS_ACCESSIBILITY, DeviceActionStatus.NEEDS_PERMISSION -> "PERMISSION NEEDED"
+                    DeviceActionStatus.FAILED -> "FAILED"
+                }
+                val bannerMessage = if (command is DeviceCommand.ReadNotifications) result.message.take(500) else result.message.take(180)
+                _statusBanner.value = "${label} • ${bannerMessage}"
+            } catch (_: Exception) {
+                // Exception messages can contain private values, paths, or system details.
+                // Keep the persisted and spoken failure generic; do not leak raw exception text.
+                spokenResult = "Device action failed. Check permissions and try again."
+                _statusBanner.value = "FAILED • Device action could not be completed."
+                runCatching {
+                    chatDao.insertMessage(ChatMessage(role = "assistant", content = spokenResult, mode = "device_control"))
+                }
+                if (fromVoice || _currentScreen.value == AppScreen.LIVE_BAAT) voiceManager.speak(spokenResult)
+            } finally {
+                _isGenerating.value = false
+            }
         }
     }
 
     // Memory Actions
     fun addMemory(title: String, content: String, category: String = "General") {
+        if (containsSensitiveCredential(title) || containsSensitiveCredential(content)) {
+            _statusBanner.value = "Memory not saved: passwords, OTPs, PINs, API keys and credentials are not allowed in the Memory Vault."
+            return
+        }
         viewModelScope.launch(Dispatchers.IO) {
             memoryDao.insertMemory(
                 MemoryItem(
@@ -324,6 +354,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _statusBanner.value = "Memory saved to on-device vault."
         }
     }
+
+    fun updateMemory(memory: MemoryItem) {
+        if (containsSensitiveCredential(memory.title) || containsSensitiveCredential(memory.content)) {
+            _statusBanner.value = "Memory not updated: passwords, OTPs, PINs, API keys and credentials are not allowed in the Memory Vault."
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            memoryDao.updateMemory(memory)
+            _statusBanner.value = "Memory updated in the on-device vault."
+        }
+    }
+
+    private fun containsSensitiveCredential(value: String): Boolean {
+        val lower = value.lowercase()
+        val credentialTerms = listOf("password", "passcode", "one-time password", "verification code", "security code", "otp", "pin code", "api key", "access token", "secret key")
+        return credentialTerms.any { lower.contains(it) } ||
+            Regex("""\b(?:otp|pin|verification code|security code)\s*(?:is|:|-)?\s*\d{4,8}\b""", RegexOption.IGNORE_CASE).containsMatchIn(value) || Regex("""^\s*\d{4,8}\s*$""").containsMatchIn(value)
+    }
+
+    private fun redactSensitiveForStorage(value: String): String =
+        if (containsSensitiveCredential(value)) "[Potential credential content redacted from chat history]" else value
 
     fun deleteMemory(id: Long) {
         viewModelScope.launch(Dispatchers.IO) {

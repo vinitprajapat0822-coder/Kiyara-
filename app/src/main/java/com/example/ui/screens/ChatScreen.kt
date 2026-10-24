@@ -38,7 +38,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
-import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -70,12 +69,12 @@ import com.example.data.model.ChatMessage
 import com.example.ui.MainViewModel
 import com.example.ui.components.AnimatedOrb
 import com.example.ui.components.LiquidGlassCard
+import com.example.ui.components.liquidGlassBackground
 import com.example.ui.theme.CoolWhite
 import com.example.ui.theme.CyanGlow
 import com.example.ui.theme.ElectricViolet
 import com.example.ui.theme.GlassBorderCyan
 import com.example.ui.theme.GlassBorderSubtle
-import com.example.ui.theme.HighThinkingAccent
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.ObsidianDark
 import com.example.ui.theme.SurfaceDark
@@ -92,9 +91,7 @@ fun ChatScreen(viewModel: MainViewModel) {
     val messages by viewModel.messages.collectAsState()
     val inputText by viewModel.inputText.collectAsState()
     val isGenerating by viewModel.isGenerating.collectAsState()
-    val isHighThinking by viewModel.isHighThinking.collectAsState()
     val activeModelName by viewModel.activeModelName.collectAsState()
-    val orbTheme by viewModel.orbTheme.collectAsState()
     val orbPulsation by viewModel.orbPulsationRate.collectAsState()
     val voiceState by viewModel.voiceManager.voiceState.collectAsState()
     val audioRms by viewModel.voiceManager.audioRms.collectAsState()
@@ -123,18 +120,18 @@ fun ChatScreen(viewModel: MainViewModel) {
     }
 
     val quickChips = listOf(
-        "⚡ JEE Physics: Lenz's Law with traps",
-        "🧪 JEE Chemistry: SN1 vs SN2 stability",
-        "📐 JEE Math: Integration by parts shortcut",
-        "💻 Android Kotlin: Coroutines best practices",
-        "🐧 Termux: Fresh development environment",
-        "🎯 JEE 2027: 45-min study sprint"
+        "💻 Android: Kotlin debugging",
+        "🐧 Termux: Safe command guide",
+        "📱 Phone: Open an app",
+        "🎵 Music: Find a lo-fi playlist",
+        "🧠 Memory: Save a preference",
+        "📋 Daily tasks: Make a plan"
     )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(ObsidianDark)
+            .liquidGlassBackground()
     ) {
         // Top Header Bar
         LiquidGlassCard(
@@ -155,8 +152,7 @@ fun ChatScreen(viewModel: MainViewModel) {
                         voiceState = voiceState,
                         size = 38.dp,
                         audioRms = audioRms,
-                        visualTheme = orbTheme,
-                        pulsationRate = orbPulsation,
+                                                pulsationRate = orbPulsation,
                         onClick = {
                             if (voiceState == VoiceState.SPEAKING) {
                                 viewModel.voiceManager.stopSpeaking()
@@ -177,20 +173,6 @@ fun ChatScreen(viewModel: MainViewModel) {
                                 fontWeight = FontWeight.Bold,
                                 color = NeonCyan
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color(0xFF0F233A))
-                                    .padding(horizontal = 5.dp, vertical = 1.dp)
-                            ) {
-                                Text(
-                                    text = "MR.V",
-                                    fontSize = 9.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = CyanGlow
-                                )
-                            }
                         }
                         Text(
                             text = when (voiceState) {
@@ -206,42 +188,13 @@ fun ChatScreen(viewModel: MainViewModel) {
                     }
                 }
 
-                // High Thinking Mode Toggle Chip
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(
-                            if (isHighThinking) Brush.horizontalGradient(
-                                listOf(ElectricViolet.copy(alpha = 0.35f), HighThinkingAccent.copy(alpha = 0.4f))
-                            ) else Brush.horizontalGradient(listOf(SurfaceDark, SurfaceDark))
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = if (isHighThinking) HighThinkingAccent else GlassBorderSubtle,
-                            shape = RoundedCornerShape(20.dp)
-                        )
-                        .clickable { viewModel.toggleHighThinking() }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                        .testTag("toggle_high_thinking"),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Psychology,
-                            contentDescription = "Thinking Mode",
-                            tint = if (isHighThinking) HighThinkingAccent else TextMuted,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (isHighThinking) "Thinking: HIGH" else "Fast Mode",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            fontFamily = FontFamily.Monospace,
-                            color = if (isHighThinking) CoolWhite else TextMuted
-                        )
-                    }
-                }
+                Text(
+                    text = "GEMINI AI",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = FontFamily.Monospace,
+                    color = NeonCyan
+                )
             }
         }
 
@@ -294,7 +247,7 @@ fun ChatScreen(viewModel: MainViewModel) {
 
             if (isGenerating) {
                 item {
-                    GeneratingIndicator(isHighThinking = isHighThinking)
+                    GeneratingIndicator()
                 }
             }
         }
@@ -408,7 +361,6 @@ fun ChatMessageItem(
     onSpeak: () -> Unit
 ) {
     val isUser = message.role == "user"
-    var showThoughts by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -452,22 +404,6 @@ fun ChatMessageItem(
                                 fontFamily = FontFamily.Monospace,
                                 color = NeonCyan
                             )
-                            if (message.mode == "high_thinking") {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(ElectricViolet.copy(alpha = 0.25f))
-                                        .padding(horizontal = 4.dp, vertical = 1.dp)
-                                ) {
-                                    Text(
-                                        text = "THINKING HIGH",
-                                        fontSize = 8.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = HighThinkingAccent
-                                    )
-                                }
-                            }
                         }
 
                         Row {
@@ -489,44 +425,6 @@ fun ChatMessageItem(
                             }
                         }
                     }
-
-                    // Collapsible thinking section if model generated thoughts
-                    if (message.thoughts.isNotBlank()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0x331E1B4B))
-                                .clickable { showThoughts = !showThoughts }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = if (showThoughts) "Hide Reasoning Chain ▲" else "Show Reasoning Chain (gemini-4-argon) ▼",
-                                fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = HighThinkingAccent
-                            )
-                        }
-
-                        AnimatedVisibility(visible = showThoughts) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFF0C101E))
-                                    .padding(8.dp)
-                            ) {
-                                Text(
-                                    text = message.thoughts,
-                                    fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = TextMuted
-                                )
-                            }
-                        }
-                    }
                 }
 
                 Text(
@@ -542,7 +440,7 @@ fun ChatMessageItem(
 }
 
 @Composable
-fun GeneratingIndicator(isHighThinking: Boolean) {
+fun GeneratingIndicator() {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
@@ -554,14 +452,14 @@ fun GeneratingIndicator(isHighThinking: Boolean) {
             CircularProgressIndicator(
                 modifier = Modifier.size(16.dp),
                 strokeWidth = 2.dp,
-                color = if (isHighThinking) HighThinkingAccent else NeonCyan
+                color = NeonCyan
             )
             Spacer(modifier = Modifier.width(10.dp))
             Text(
-                text = if (isHighThinking) "KIARAA deep thinking (gemini-4-argon)..." else "KIARAA is typing...",
+                text = "KIARAA is thinking…",
                 fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace,
-                color = if (isHighThinking) HighThinkingAccent else NeonCyan
+                color = NeonCyan
             )
         }
     }

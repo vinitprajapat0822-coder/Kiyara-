@@ -1,5 +1,7 @@
 package com.example
 
+import com.example.data.api.GeminiApiClient
+
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -12,5 +14,10 @@ class ExampleUnitTest {
   @Test
   fun addition_isCorrect() {
     assertEquals(4, 2 + 2)
+  }
+
+  @Test
+  fun configuredModelUsesGemini35FlashLite() {
+    assertEquals("gemini-3.5-flash-lite", GeminiApiClient.MODEL_FAST)
   }
 }

@@ -1,6 +1,12 @@
 package com.example
 
 import android.content.Context
+import androidx.room.Room
+import com.example.data.local.AppDatabase
+import com.example.data.local.DefaultDataSeeder
+import com.example.data.model.ChatMessage
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import androidx.test.core.app.ApplicationProvider
 import com.example.operating.CapabilityRegistry
 import com.example.operating.RiskLevel
@@ -35,5 +41,48 @@ class ExampleRobolectricTest {
 
     val lowRiskCaps = registry.capabilities.filter { it.riskLevel == RiskLevel.LOW }
     assertTrue(lowRiskCaps.isNotEmpty())
+  }
+
+  @Test
+  fun defaultSeederIsIdempotent() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val database = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+
+    try {
+      val seeder = DefaultDataSeeder(database)
+      seeder.seedIfNeeded()
+      seeder.seedIfNeeded()
+
+      assertEquals(1, database.chatDao().getMessageCount())
+      assertEquals(0, database.memoryDao().getCountByCategoryAndTitle("JEE Prep", "Target Exam"))
+      assertEquals(0, database.memoryDao().getCountByCategoryAndTitle("Preferences", "Language Style"))
+    } finally {
+      database.close()
+    }
+  }
+
+  @Test
+  fun defaultSeederPreservesExistingChatHistory() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val database = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+
+    try {
+      database.chatDao().insertMessage(
+        ChatMessage(role = "user", content = "Keep this history")
+      )
+
+      DefaultDataSeeder(database).seedIfNeeded()
+
+      val messages = database.chatDao().getAllMessages().first()
+      assertEquals(1, messages.size)
+      assertEquals("Keep this history", messages.single().content)
+      assertEquals(0, database.memoryDao().getCountByCategoryAndTitle("JEE Prep", "Target Exam"))
+    } finally {
+      database.close()
+    }
   }
 }

@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">KIARAA AI</string>
+    <string name="accessibility_service_label">KIARAA device actions</string>
+    <string name="accessibility_service_description">Allows KIARAA to perform actions you explicitly request, such as navigation, scrolling, typing into the focused non-password field, and reading visible screen text on request. It does not run hidden actions.</string>
+    <string name="notification_listener_label">KIARAA notification access</string>
 </resources>

@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.MemoryItem
 import com.example.ui.MainViewModel
 import com.example.ui.components.LiquidGlassCard
+import com.example.ui.components.liquidGlassBackground
 import com.example.ui.theme.CoolWhite
 import com.example.ui.theme.CyanGlow
 import com.example.ui.theme.ElectricViolet
@@ -76,14 +78,16 @@ fun MemoryScreen(viewModel: MainViewModel) {
     val memories by viewModel.memories.collectAsState()
     var selectedCategory by remember { mutableStateOf("ALL") }
     var showAddDialog by remember { mutableStateOf(false) }
+    var memoryToEdit by remember { mutableStateOf<MemoryItem?>(null) }
+    var showClearAllConfirmation by remember { mutableStateOf(false) }
 
-    val categories = listOf("ALL", "Preferences", "JEE Prep", "Projects", "Decisions", "Routines", "General")
+    val categories = listOf("ALL", "Preferences", "Projects", "Decisions", "Routines", "General")
     val filteredMemories = if (selectedCategory == "ALL") memories else memories.filter { it.category == selectedCategory }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(ObsidianDark)
+            .liquidGlassBackground()
             .padding(14.dp)
     ) {
         // Privacy & Storage Vault Status Banner
@@ -130,7 +134,7 @@ fun MemoryScreen(viewModel: MainViewModel) {
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Encrypted in local SQLite (Room). Zero cloud transmission without explicit auth. Never logs passwords or sensitive credentials.",
+                    text = "Stored in local SQLite (Room). Cloud sync is not enabled in this build. Never store passwords or sensitive credentials.",
                     style = MaterialTheme.typography.labelSmall,
                     color = TextMuted
                 )
@@ -200,7 +204,7 @@ fun MemoryScreen(viewModel: MainViewModel) {
                 Spacer(modifier = Modifier.width(8.dp))
 
                 Button(
-                    onClick = { viewModel.clearAllMemories() },
+                    onClick = { showClearAllConfirmation = true },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1015)),
                     shape = RoundedCornerShape(12.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, RubyError.copy(alpha = 0.4f)),
@@ -272,11 +276,70 @@ fun MemoryScreen(viewModel: MainViewModel) {
                 items(filteredMemories, key = { it.id }) { memory ->
                     MemoryCard(
                         memory = memory,
+                        onEdit = { memoryToEdit = memory },
                         onDelete = { viewModel.deleteMemory(memory.id) }
                     )
                 }
             }
         }
+    }
+
+    memoryToEdit?.let { editing ->
+        var editTitle by remember(editing.id) { mutableStateOf(editing.title) }
+        var editContent by remember(editing.id) { mutableStateOf(editing.content) }
+        AlertDialog(
+            onDismissRequest = { memoryToEdit = null },
+            title = { Text("Edit Memory", color = NeonCyan, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = editTitle,
+                        onValueChange = { editTitle = it },
+                        label = { Text("Title") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = CoolWhite, unfocusedTextColor = CoolWhite, focusedBorderColor = NeonCyan, unfocusedBorderColor = GlassBorderSubtle)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = editContent,
+                        onValueChange = { editContent = it },
+                        label = { Text("Memory content") },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 5,
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = CoolWhite, unfocusedTextColor = CoolWhite, focusedBorderColor = NeonCyan, unfocusedBorderColor = GlassBorderSubtle)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (editTitle.isNotBlank() && editContent.isNotBlank()) {
+                            viewModel.updateMemory(editing.copy(title = editTitle.trim(), content = editContent.trim()))
+                            memoryToEdit = null
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonCyan)
+                ) { Text("Save Changes", color = ObsidianDark, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = { TextButton(onClick = { memoryToEdit = null }) { Text("Cancel", color = TextMuted) } },
+            containerColor = SurfaceElevated
+        )
+    }
+
+    if (showClearAllConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showClearAllConfirmation = false },
+            title = { Text("Clear Memory Vault?", color = RubyError) },
+            text = { Text("This permanently deletes every saved memory on this device. This cannot be undone.", color = TextMuted) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.clearAllMemories()
+                    showClearAllConfirmation = false
+                }) { Text("Clear all", color = RubyError) }
+            },
+            dismissButton = { TextButton(onClick = { showClearAllConfirmation = false }) { Text("Cancel", color = TextMuted) } },
+            containerColor = SurfaceElevated
+        )
     }
 
     // Add Memory Dialog
@@ -360,6 +423,7 @@ fun MemoryScreen(viewModel: MainViewModel) {
 @Composable
 fun MemoryCard(
     memory: MemoryItem,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val dateStr = remember(memory.timestamp) {
@@ -399,6 +463,10 @@ fun MemoryCard(
                         fontWeight = FontWeight.Bold,
                         color = CoolWhite
                     )
+                }
+
+                IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
+                    Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit memory", tint = CyanGlow, modifier = Modifier.size(16.dp))
                 }
 
                 IconButton(
