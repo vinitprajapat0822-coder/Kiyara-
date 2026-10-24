@@ -278,6 +278,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // Memory Actions
     fun addMemory(title: String, content: String, category: String = "General") {
+        if (containsSensitiveCredential(title) || containsSensitiveCredential(content)) {
+            _statusBanner.value = "Memory not saved: passwords, OTPs, PINs, API keys and credentials are not allowed in the Memory Vault."
+            return
+        }
         viewModelScope.launch(Dispatchers.IO) {
             memoryDao.insertMemory(
                 MemoryItem(
@@ -289,6 +293,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
             _statusBanner.value = "Memory saved to on-device vault."
         }
+    }
+
+    fun updateMemory(memory: MemoryItem) {
+        if (containsSensitiveCredential(memory.title) || containsSensitiveCredential(memory.content)) {
+            _statusBanner.value = "Memory not updated: passwords, OTPs, PINs, API keys and credentials are not allowed in the Memory Vault."
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            memoryDao.updateMemory(memory)
+            _statusBanner.value = "Memory updated in the on-device vault."
+        }
+    }
+
+    private fun containsSensitiveCredential(value: String): Boolean {
+        val lower = value.lowercase()
+        val credentialTerms = listOf("password", "passcode", "one-time password", "verification code", "security code", "otp", "pin code", "api key", "access token", "secret key")
+        return credentialTerms.any { lower.contains(it) } ||
+            Regex("""\b\d{4,8}\b""").containsMatchIn(value)
     }
 
     fun deleteMemory(id: Long) {
