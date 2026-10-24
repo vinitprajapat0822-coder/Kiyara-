@@ -63,6 +63,7 @@ import com.example.ui.components.liquidGlassBackground
 import com.example.ui.theme.AmberWarning
 import com.example.ui.theme.CoolWhite
 import com.example.ui.theme.CyanGlow
+import com.example.ui.theme.ElectricViolet
 import com.example.ui.theme.GlassBorderCyan
 import com.example.ui.theme.GlassBorderSubtle
 import com.example.ui.theme.HighThinkingAccent
