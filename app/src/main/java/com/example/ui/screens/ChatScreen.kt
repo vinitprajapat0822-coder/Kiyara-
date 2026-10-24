@@ -174,20 +174,6 @@ fun ChatScreen(viewModel: MainViewModel) {
                                 fontWeight = FontWeight.Bold,
                                 color = NeonCyan
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color(0xFF0F233A))
-                                    .padding(horizontal = 5.dp, vertical = 1.dp)
-                            ) {
-                                Text(
-                                    text = "MR.V",
-                                    fontSize = 9.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = CyanGlow
-                                )
-                            }
                         }
                         Text(
                             text = when (voiceState) {
@@ -204,7 +190,7 @@ fun ChatScreen(viewModel: MainViewModel) {
                 }
 
                 Text(
-                    text = "GEMINI 3.5",
+                    text = "GEMINI AI",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = FontFamily.Monospace,
