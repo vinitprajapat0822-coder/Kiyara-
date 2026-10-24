@@ -110,9 +110,11 @@ class KiaraaAccessibilityService : AccessibilityService() {
         val text = candidates.firstOrNull { it.isNotBlank() }.orEmpty()
         val safe = !node.isPassword &&
             !text.contains("password", true) && !text.contains("passcode", true) &&
-            !text.contains("one-time code", true) && !text.contains("verification code", true) &&
-            !Regex("""\botp\b""", RegexOption.IGNORE_CASE).containsMatchIn(text)
-        val redactedText = Regex("""\b\d{4,8}\b""").replace(text, "••••")
+            !text.contains("one-time code", true) && !text.contains("one-time password", true) &&
+            !text.contains("verification code", true) && !text.contains("security code", true) &&
+            !text.contains("pin code", true) &&
+            !Regex("""\b(?:otp|pin)\b""", RegexOption.IGNORE_CASE).containsMatchIn(text)
+        val redactedText = Regex("""\b\d{4,}\b""").replace(text, "••••")
         if (safe && redactedText.isNotBlank() && redactedText.length <= 300) output.add(redactedText)
         for (i in 0 until node.childCount.coerceAtMost(80)) {
             val child = node.getChild(i) ?: continue
