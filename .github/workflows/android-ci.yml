@@ -66,6 +66,20 @@ jobs:
       - name: Verify Wrapper and Gradle version
         run: ./gradlew --no-daemon --version
 
+      - name: Configure API secrets for Gradle (never print secret values)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > .env
+          if [[ -n "${GEMINI_API_KEY:-}" ]]; then printf 'GEMINI_API_KEY=%s\\n' "$GEMINI_API_KEY" >> .env; fi
+          if [[ -n "${ELEVENLABS_API_KEY:-}" ]]; then printf 'ELEVENLABS_API_KEY=%s\\n' "$ELEVENLABS_API_KEY" >> .env; fi
+          if [[ -n "${ELEVENLABS_VOICE_ID:-}" ]]; then printf 'ELEVENLABS_VOICE_ID=%s\\n' "$ELEVENLABS_VOICE_ID" >> .env; fi
+          if [[ ! -s .env ]]; then rm -f .env; echo "No API repository secrets configured; Gradle will use .env.example placeholders."; else echo "API secret file configured (values hidden)."; fi
+
       - name: Run unit tests and build debug APK
         run: ./gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug
 
