@@ -235,7 +235,7 @@ class VoiceManager(
                                 audioFile.delete()
                                 return@post
                             }
-                            playElevenLabsFile(audioFile, utteranceId)
+                            playElevenLabsFile(audioFile, utteranceId, cleanSpeech)
                         }
                     }
                 } catch (e: Exception) {
@@ -263,7 +263,7 @@ class VoiceManager(
         textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
     }
 
-    private fun playElevenLabsFile(audioFile: File, utteranceId: String) {
+    private fun playElevenLabsFile(audioFile: File, utteranceId: String, fallbackText: String) {
         stopElevenLabsPlayback()
         try {
             val player = MediaPlayer()
@@ -296,7 +296,7 @@ class VoiceManager(
             runCatching { elevenLabsPlayer?.release() }
             elevenLabsPlayer = null
             audioFile.delete()
-            speakWithAndroidTts("", utteranceId)
+            speakWithAndroidTts(fallbackText, utteranceId)
         }
     }
 
