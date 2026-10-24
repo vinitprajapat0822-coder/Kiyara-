@@ -8,17 +8,31 @@ Instead, this branch ports the useful interaction patterns into the existing Com
 
 ## Component mapping
 
-| Componentry idea | KIARAA native implementation | Status |
+The upstream registry has many React/TypeScript components. The 13 components requested in the implementation guide are represented by lightweight Compose-native counterparts so the existing Android app stays one coherent native product instead of acquiring a parallel React stack.
+
+| Requested Componentry pattern | KIARAA native implementation | Status |
 |---|---|---|
-| Magnetic Dock | Existing Compose bottom navigation; it hides while the IME is open so it cannot compete with the composer | Implemented |
-| Kinetic Text Reveal | Reduced-motion-aware welcome entrance with animated status capsule | Implemented |
-| Text Morph / Split Flap | Animated assistant status label transitions between Ready, Listening, Thinking, Speaking, and Error | Implemented |
-| Lens Clock | Native Canvas clock in chat header and welcome card, updated every 30 seconds | Implemented |
-| Layered Stack / Orbit Card Stack | Horizontally scrollable recent-memory deck with mint/gold card accents | Implemented native equivalent |
-| Annotated Text | Assistant responses highlight Markdown headings, bold spans and inline code | Implemented |
-| Hover Transition | Not used as a primary interaction because the target is a touch-first phone; Android hover can be added for desktop later | Deferred |
-| Signature | Subtle KIARAA signature in the welcome surface | Implemented |
-| Grain Gradient / Spectral Ribbon / Dither Gradient | Low-cost mint/gold radial ambient gradients replace heavy web/WebGL backgrounds for older Android devices | Implemented equivalent |
+| Magnetic Dock | Glass bottom navigation with selected-item motion; hidden while the keyboard is open | Implemented |
+| Kinetic Text Reveal | One-shot welcome entrance; respects Android animator scale | Implemented |
+| Text Morph | Animated status transitions (Ready, Listening, Thinking, Speaking, Error) | Implemented |
+| Split Flap Display | Animated status capsule in the welcome surface | Implemented |
+| Lens Clock | Native Canvas clock in chat header and welcome card | Implemented |
+| Annotated Text | Assistant response styling for Markdown headings, bold spans and inline code | Implemented |
+| Hover Transition | Press-scale interaction that works on touch devices | Implemented |
+| Layered Stack | Offset layered glass feature card | Implemented |
+| Orbit Card Stack | Tappable empty-state memory feature card; recent memories remain in a horizontal card deck | Implemented |
+| Signature | Subtle KIARAA wordmark | Implemented |
+| Grain Gradient | Low-cost radial mint/gold ambience plus static fine grain | Implemented |
+| Spectral Ribbon | Static low-cost wave-line accent | Implemented |
+| Dither Gradient | Static low-contrast dot field | Implemented |
+| Mobile keyboard handling | Android adjustResize, Compose imePadding(), and dock visibility driven by WindowInsets.ime | Implemented in source; real-device verification pending |
+| Slash command palette | /voice, /memory, /settings, /stop, /help | Implemented |
+
+## Other Componentry repository findings
+
+The source library also contains cursor-reactive, scroll-driven, image/video, and WebGL-heavy components. They were reviewed as web-first patterns and not blindly imported into this native Android app. WebGL/cursor-only effects are poor fits for a low-memory Android 10 device and would add runtime cost without functioning correctly in Compose. The chosen native implementations preserve the useful visual intent while keeping interactions touch-accessible and lightweight.
+
+The shadcn add commands install React/TSX registry files and web dependencies; they are not a valid installation path for this Kotlin/Jetpack Compose project. The selected behavior is ported into native Kotlin files instead.
 
 ## Brand tokens
 

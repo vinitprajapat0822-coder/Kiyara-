@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.data.model.ChatMessage
+import com.example.ui.AppScreen
 import com.example.ui.MainViewModel
 import com.example.ui.components.AnimatedOrb
 import com.example.ui.components.AnnotatedAssistantText
@@ -125,6 +126,32 @@ fun ChatScreen(viewModel: MainViewModel) {
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.size - 1)
+        }
+    }
+
+    val slashCommands = listOf("/voice", "/memory", "/settings", "/stop", "/help")
+
+    fun executeSlashCommand(command: String) {
+        when (command) {
+            "/voice" -> {
+                viewModel.updateInputText("")
+                viewModel.setScreen(AppScreen.LIVE_BAAT)
+            }
+            "/memory" -> {
+                viewModel.updateInputText("")
+                viewModel.setScreen(AppScreen.MEMORY)
+            }
+            "/settings" -> {
+                viewModel.updateInputText("")
+                viewModel.setScreen(AppScreen.SETTINGS)
+            }
+            "/stop" -> {
+                viewModel.voiceManager.stopSpeaking()
+                viewModel.voiceManager.stopListening()
+                viewModel.updateInputText("")
+            }
+            "/help" -> viewModel.updateInputText("Explain KIARAA's chat, voice, memory and phone-assist features.")
+            else -> viewModel.sendMessage()
         }
     }
 
@@ -296,6 +323,31 @@ fun ChatScreen(viewModel: MainViewModel) {
             }
         }
 
+        // Slash-command palette: actions stay local and do not send a command as chat text.
+        AnimatedVisibility(visible = inputText.trimStart().startsWith("/")) {
+            LazyRow(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                contentPadding = PaddingValues(vertical = 2.dp)
+            ) {
+                items(slashCommands.filter { command ->
+                    val query = inputText.trim().lowercase()
+                    query == "/" || command.startsWith(query)
+                }) { command ->
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(SurfaceGlass)
+                            .border(1.dp, GlassBorderCyan, RoundedCornerShape(12.dp))
+                            .clickable { executeSlashCommand(command) }
+                            .padding(horizontal = 11.dp, vertical = 7.dp)
+                    ) {
+                        Text(command, color = NeonCyan, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    }
+                }
+            }
+        }
+
         // Bottom Input Row
         LiquidGlassCard(
             modifier = Modifier
@@ -332,7 +384,7 @@ fun ChatScreen(viewModel: MainViewModel) {
                     maxLines = 4,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = {
-                        viewModel.sendMessage()
+                        executeSlashCommand(inputText.trim().lowercase())
                     })
                 )
 
@@ -377,7 +429,7 @@ fun ChatScreen(viewModel: MainViewModel) {
 
                 // Send Button
                 IconButton(
-                    onClick = { viewModel.sendMessage() },
+                    onClick = { executeSlashCommand(inputText.trim().lowercase()) },
                     enabled = inputText.isNotBlank() && !isGenerating,
                     modifier = Modifier
                         .size(44.dp)
