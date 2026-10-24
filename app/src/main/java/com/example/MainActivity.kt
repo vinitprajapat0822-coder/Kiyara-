@@ -312,7 +312,7 @@ fun KiaraaNavigationBar(
     onSelectScreen: (AppScreen) -> Unit
 ) {
     NavigationBar(
-        containerColor = SurfaceDark.copy(alpha = 0.95f),
+        containerColor = SurfaceGlass.copy(alpha = 0.74f),
         tonalElevation = 8.dp,
         modifier = Modifier
             .fillMaxWidth()

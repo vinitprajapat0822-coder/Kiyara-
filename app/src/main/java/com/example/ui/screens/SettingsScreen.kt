@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Accessibility
@@ -45,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -57,7 +59,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.ui.MainViewModel
 import com.example.ui.components.AnimatedOrb
 import com.example.ui.components.LiquidGlassCard
-import com.example.ui.components.OrbVisualTheme
+import com.example.ui.components.liquidGlassBackground
 import com.example.ui.theme.AmberWarning
 import com.example.ui.theme.CoolWhite
 import com.example.ui.theme.CyanGlow
@@ -79,9 +81,10 @@ import com.example.operating.KiaraaAccessibilityService
 fun SettingsScreen(viewModel: MainViewModel) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val orbTheme by viewModel.orbTheme.collectAsState()
     val orbPulsation by viewModel.orbPulsationRate.collectAsState()
     val activeModel by viewModel.activeModelName.collectAsState()
+    val voiceProviderStatus by viewModel.voiceManager.voiceProviderStatus.collectAsState()
+    val voiceError by viewModel.voiceManager.errorMessage.collectAsState()
     var privacyAction by remember { mutableStateOf("") }
     var accessRefresh by remember { mutableIntStateOf(0) }
 
@@ -103,7 +106,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
     val writeEnabled = remember(accessRefresh) { Settings.System.canWrite(context) }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(ObsidianDark).padding(14.dp),
+        modifier = Modifier.fillMaxSize().liquidGlassBackground().padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
@@ -112,7 +115,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     Text("KIARAA AI", color = NeonCyan, fontSize = 22.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                     Text("Personal AI • Voice + Chat", color = TextMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                     Spacer(Modifier.height(8.dp))
-                    AnimatedOrb(voiceState = VoiceState.IDLE, size = 104.dp, visualTheme = orbTheme, pulsationRate = orbPulsation)
+                    AnimatedOrb(voiceState = VoiceState.IDLE, size = 104.dp, pulsationRate = orbPulsation)
                     Text("Your voice-first personal assistant", color = CoolWhite, fontSize = 13.sp)
                     Text("Home • Voice • Memory • Settings", color = TextMuted, fontSize = 11.sp)
                 }
@@ -126,22 +129,11 @@ fun SettingsScreen(viewModel: MainViewModel) {
                         Spacer(Modifier.size(8.dp))
                         Text("Appearance", color = CoolWhite, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
-                    val themes = listOf(
-                        OrbVisualTheme.MIDNIGHT_TERMINAL to "Midnight",
-                        OrbVisualTheme.NEON_MATRIX to "Matrix",
-                        OrbVisualTheme.SOLAR_FLARE to "Solar",
-                        OrbVisualTheme.QUANTUM_NEBULA to "Nebula"
-                    )
-                    themes.chunked(2).forEach { rowThemes ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            rowThemes.forEach { pair ->
-                                val selected = orbTheme == pair.first
-                                Box(Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
-                                    .background(if (selected) NeonCyan.copy(alpha = 0.14f) else SurfaceDark)
-                                    .clickable { viewModel.setOrbTheme(pair.first) }.padding(12.dp)) {
-                                    Text(pair.second, color = if (selected) NeonCyan else TextMuted, fontSize = 12.sp)
-                                }
-                            }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        Box(Modifier.size(18.dp).clip(CircleShape).background(Brush.linearGradient(listOf(NeonCyan, ElectricViolet))))
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("Liquid Glass 27 · Midnight", color = CoolWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text("One unified frosted-glass surface with cyan/violet highlights and a darker edge.", color = TextMuted, fontSize = 11.sp)
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
@@ -162,7 +154,21 @@ fun SettingsScreen(viewModel: MainViewModel) {
                         Text("AI connection", color = CoolWhite, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     Text("Active model: " + activeModel.ifBlank { "gemini-3.5-flash-lite" }, color = NeonCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                    Text("Uses the configured Gemini 3.5 endpoint. Unsupported model IDs are not probed; API failures and quota limits are shown honestly.", color = TextMuted, fontSize = 11.sp)
+                    Text("Gemini 3.5 Flash-Lite uses a protected request header, one transient-network retry, and explicit API error messages.", color = TextMuted, fontSize = 11.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Voice output", color = CoolWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        voiceProviderStatus,
+                        color = when {
+                            voiceProviderStatus.contains("unavailable", ignoreCase = true) || voiceProviderStatus.contains("failed", ignoreCase = true) -> RubyError
+                            voiceProviderStatus.contains("ElevenLabs", ignoreCase = true) -> CyanGlow
+                            else -> TextMuted
+                        },
+                        fontSize = 12.sp
+                    )
+                    voiceError?.takeIf { it.isNotBlank() }?.let {
+                        Text(it, color = AmberWarning, fontSize = 11.sp)
+                    }
                     Text("Release security: the prototype currently calls Gemini from the Android client. Before public release, move the API key behind an authenticated backend proxy; a key packaged in an APK can be extracted.", color = AmberWarning, fontSize = 11.sp)
                 }
             }

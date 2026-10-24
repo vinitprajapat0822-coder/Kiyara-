@@ -69,6 +69,7 @@ import com.example.data.model.ChatMessage
 import com.example.ui.MainViewModel
 import com.example.ui.components.AnimatedOrb
 import com.example.ui.components.LiquidGlassCard
+import com.example.ui.components.liquidGlassBackground
 import com.example.ui.theme.CoolWhite
 import com.example.ui.theme.CyanGlow
 import com.example.ui.theme.ElectricViolet
@@ -91,7 +92,6 @@ fun ChatScreen(viewModel: MainViewModel) {
     val inputText by viewModel.inputText.collectAsState()
     val isGenerating by viewModel.isGenerating.collectAsState()
     val activeModelName by viewModel.activeModelName.collectAsState()
-    val orbTheme by viewModel.orbTheme.collectAsState()
     val orbPulsation by viewModel.orbPulsationRate.collectAsState()
     val voiceState by viewModel.voiceManager.voiceState.collectAsState()
     val audioRms by viewModel.voiceManager.audioRms.collectAsState()
@@ -131,7 +131,7 @@ fun ChatScreen(viewModel: MainViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(ObsidianDark)
+            .liquidGlassBackground()
     ) {
         // Top Header Bar
         LiquidGlassCard(
@@ -152,8 +152,7 @@ fun ChatScreen(viewModel: MainViewModel) {
                         voiceState = voiceState,
                         size = 38.dp,
                         audioRms = audioRms,
-                        visualTheme = orbTheme,
-                        pulsationRate = orbPulsation,
+                                                pulsationRate = orbPulsation,
                         onClick = {
                             if (voiceState == VoiceState.SPEAKING) {
                                 viewModel.voiceManager.stopSpeaking()

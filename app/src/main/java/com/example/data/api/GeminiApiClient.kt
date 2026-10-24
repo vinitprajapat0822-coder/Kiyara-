@@ -3,6 +3,7 @@ package com.example.data.api
 import android.util.Log
 import com.example.BuildConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -11,6 +12,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 
 sealed class GeminiResult {
@@ -31,9 +34,9 @@ sealed class GeminiResult {
 class GeminiApiClient {
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(35, TimeUnit.SECONDS)
+        .writeTimeout(20, TimeUnit.SECONDS)
         .build()
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -75,44 +78,65 @@ class GeminiApiClient {
         var wasRateLimitOrQuota = false
 
         for ((modelName, useThinking) in modelsToTry) {
-            try {
-                val callResult = executeModelCall(
-                    apiKey = apiKey,
-                    modelName = modelName,
-                    prompt = prompt,
-                    useThinking = useThinking,
-                    conversationHistory = conversationHistory,
-                    customSystemPrompt = customSystemPrompt
-                )
-
-                when (callResult) {
-                    is InternalCallResult.Success -> {
-                        val fallbackNotice: String? = null
-
-                        return@withContext GeminiResult.Success(
-                            text = callResult.text,
-                            thoughts = callResult.thoughts,
-                            modelUsed = modelName,
-                            fallbackNotice = fallbackNotice
-                        )
+            var attempt = 0
+            while (attempt < 2) {
+                try {
+                    when (val callResult = executeModelCall(
+                        apiKey = apiKey,
+                        modelName = modelName,
+                        prompt = prompt,
+                        useThinking = useThinking,
+                        conversationHistory = conversationHistory,
+                        customSystemPrompt = customSystemPrompt
+                    )) {
+                        is InternalCallResult.Success -> {
+                            return@withContext GeminiResult.Success(
+                                text = callResult.text,
+                                thoughts = callResult.thoughts,
+                                modelUsed = modelName
+                            )
+                        }
+                        is InternalCallResult.RateLimitOrQuota -> {
+                            wasRateLimitOrQuota = true
+                            lastErrorMessage = callResult.message
+                            break
+                        }
+                        is InternalCallResult.ApiError -> {
+                            lastErrorMessage = callResult.message
+                            Log.w(TAG, "Gemini HTTP ${callResult.code} on model $modelName: ${callResult.message}")
+                            break
+                        }
                     }
-                    is InternalCallResult.RateLimitOrQuota -> {
-                        wasRateLimitOrQuota = true
-                        lastErrorMessage = callResult.message
-                        // Only the configured Gemini 3.5 model is tried in this build.
+                    break
+                } catch (e: SocketTimeoutException) {
+                    if (attempt == 0) {
+                        attempt++
+                        delay(500L)
+                        continue
                     }
-                    is InternalCallResult.ApiError -> {
-                        lastErrorMessage = callResult.message
-                        Log.w(TAG, "Model $modelName error: ${callResult.code} - ${callResult.message}. No additional model fallback is configured.")
-                        // Continue loop to try next fallback
+                    lastErrorMessage = "Network timeout contacting Gemini. Check mobile data/Wi-Fi and retry."
+                    Log.w(TAG, "Gemini request timed out after ${attempt + 1} attempt(s); API key redacted.")
+                    break
+                } catch (e: UnknownHostException) {
+                    lastErrorMessage = "Cannot reach Gemini API. Check your internet connection or DNS."
+                    Log.w(TAG, "Gemini host could not be resolved; API key redacted.")
+                    break
+                } catch (e: IOException) {
+                    if (attempt == 0) {
+                        attempt++
+                        delay(500L)
+                        continue
                     }
+                    lastErrorMessage = "Network error contacting Gemini (${e.javaClass.simpleName}). Check connection and retry."
+                    Log.w(TAG, "Gemini network failure (${e.javaClass.simpleName}); API key redacted.")
+                    break
+                } catch (e: Exception) {
+                    lastErrorMessage = "Unexpected Gemini response error (${e.javaClass.simpleName}). Please retry."
+                    Log.w(TAG, "Unexpected Gemini client error (${e.javaClass.simpleName}); API key redacted.")
+                    break
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "Exception calling $modelName", e)
-                lastErrorMessage = e.localizedMessage ?: "Unknown network error"
             }
         }
-
         // If all remote models failed or quota exceeded
         return@withContext GeminiResult.Error(
             message = if (wasRateLimitOrQuota) {
@@ -124,6 +148,20 @@ class GeminiApiClient {
         )
     }
 
+    private fun providerErrorMessage(body: String, code: Int): String {
+        val rawMessage = runCatching {
+            JSONObject(body).optJSONObject("error")?.optString("message").orEmpty()
+        }.getOrDefault("")
+        val detail = rawMessage.replace(Regex("\\s+"), " ").take(180)
+        return when (code) {
+            400 -> "Gemini rejected the request (400). ${detail.ifBlank { "Check request/model settings." }}"
+            401, 403 -> "Gemini rejected the API key or its permissions ($code). Check key status and API restrictions."
+            404 -> "The Gemini model or endpoint was not found (404). Check the configured model name."
+            429 -> "Gemini quota or rate limit reached (429). Check project quota and retry later."
+            in 500..599 -> "Gemini service returned HTTP $code. Try again shortly."
+            else -> "Gemini API returned HTTP $code${if (detail.isNotBlank()) ": $detail" else ""}"
+        }
+    }
     private fun executeModelCall(
         apiKey: String,
         modelName: String,
@@ -132,7 +170,7 @@ class GeminiApiClient {
         conversationHistory: List<Pair<String, String>>,
         customSystemPrompt: String?
     ): InternalCallResult {
-        val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey"
+        val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent"
 
         val rootPayload = JSONObject()
 
@@ -173,18 +211,19 @@ class GeminiApiClient {
         val requestBody = rootPayload.toString().toRequestBody(jsonMediaType)
         val request = Request.Builder()
             .url(endpoint)
+            .header("x-goog-api-key", apiKey)
             .post(requestBody)
             .build()
 
         val response = client.newCall(request).execute()
-        val responseBodyString = response.body?.string() ?: ""
+        val responseBodyString = response.use { it.body?.string().orEmpty() }
 
         if (!response.isSuccessful) {
-            Log.e(TAG, "Gemini API HTTP Error ${response.code} on model $modelName: $responseBodyString")
+            Log.e(TAG, "Gemini API HTTP ${response.code} on model $modelName; response body omitted from logs.")
             if (response.code == 429 || responseBodyString.contains("RESOURCE_EXHAUSTED", ignoreCase = true)) {
-                return InternalCallResult.RateLimitOrQuota(responseBodyString)
+                return InternalCallResult.RateLimitOrQuota(providerErrorMessage(responseBodyString, response.code))
             }
-            return InternalCallResult.ApiError(response.code, responseBodyString)
+            return InternalCallResult.ApiError(response.code, providerErrorMessage(responseBodyString, response.code))
         }
 
         val jsonResponse = JSONObject(responseBodyString)

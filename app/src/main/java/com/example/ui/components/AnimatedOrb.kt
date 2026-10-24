@@ -36,20 +36,12 @@ import com.example.voice.VoiceState
 import kotlin.math.cos
 import kotlin.math.sin
 
-enum class OrbVisualTheme {
-    MIDNIGHT_TERMINAL,
-    NEON_MATRIX,
-    SOLAR_FLARE,
-    QUANTUM_NEBULA
-}
-
 @Composable
 fun AnimatedOrb(
     voiceState: VoiceState,
     modifier: Modifier = Modifier,
     size: Dp = 160.dp,
     audioRms: Float = 0f,
-    visualTheme: OrbVisualTheme = OrbVisualTheme.MIDNIGHT_TERMINAL,
     pulsationRate: Float = 1.0f,
     onClick: () -> Unit = {}
 ) {
@@ -98,12 +90,7 @@ fun AnimatedOrb(
         VoiceState.PROCESSING -> Pair(VioletGlow, NeonCyan)
         VoiceState.LISTENING -> Pair(NeonCyan, CyanGlow)
         VoiceState.SPEAKING -> Pair(CyanGlow, ElectricViolet)
-        VoiceState.IDLE -> when (visualTheme) {
-            OrbVisualTheme.MIDNIGHT_TERMINAL -> Pair(NeonCyan, ElectricViolet)
-            OrbVisualTheme.NEON_MATRIX -> Pair(Color(0xFF10B981), Color(0xFF06B6D4))
-            OrbVisualTheme.SOLAR_FLARE -> Pair(Color(0xFFF59E0B), Color(0xFFEF4444))
-            OrbVisualTheme.QUANTUM_NEBULA -> Pair(Color(0xFFEC4899), Color(0xFF8B5CF6))
-        }
+        VoiceState.IDLE -> Pair(NeonCyan, ElectricViolet)
     }
 
     Box(

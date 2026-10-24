@@ -10,6 +10,9 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 import android.os.Bundle
 import android.os.Handler
@@ -35,6 +38,8 @@ enum class VoiceState {
     SPEAKING,
     ERROR
 }
+
+private class ElevenLabsApiException(val statusCode: Int, val apiStatus: String) : IOException("HTTP $statusCode ($apiStatus)")
 
 class VoiceManager(
     private val context: Context,
@@ -78,10 +83,43 @@ class VoiceManager(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _voiceProviderStatus = MutableStateFlow("Checking voice configuration…")
+    val voiceProviderStatus: StateFlow<String> = _voiceProviderStatus.asStateFlow()
+
     var onFinalSpeechResult: ((String) -> Unit)? = null
 
     init {
+        _voiceProviderStatus.value = if (hasElevenLabsConfiguration()) {
+            "ElevenLabs configured • selected Voice ID will be used"
+        } else {
+            "Android system voice • ElevenLabs key/Voice ID not configured in this APK"
+        }
         textToSpeech = TextToSpeech(context.applicationContext, this)
+    }
+
+    private fun hasElevenLabsConfiguration(): Boolean {
+        val apiKey = BuildConfig.ELEVENLABS_API_KEY?.trim().orEmpty()
+        val voiceId = BuildConfig.ELEVENLABS_VOICE_ID?.trim().orEmpty()
+        return apiKey.isNotEmpty() && apiKey != "MY_ELEVENLABS_API_KEY" &&
+            voiceId.isNotEmpty() && voiceId != "MY_ELEVENLABS_VOICE_ID"
+    }
+
+    private fun describeElevenLabsFailure(error: Exception): String {
+        return when (error) {
+            is ElevenLabsApiException -> when (error.statusCode) {
+                401 -> "ElevenLabs rejected the API key (401). Check the ELEVENLABS_API_KEY secret."
+                402 -> "ElevenLabs credits or quota are exhausted (402)."
+                403 -> "This ElevenLabs account/key may not have permission to use the selected voice (403)."
+                404 -> "The Voice ID was not found or is not available to this API account (404)."
+                422 -> "ElevenLabs rejected the request settings (422). Check voice/model access."
+                429 -> "ElevenLabs rate limit reached (429). Try again later."
+                else -> "ElevenLabs returned HTTP ${error.statusCode}. Check account access and voice settings."
+            }
+            is SocketTimeoutException -> "ElevenLabs request timed out. Check the network and retry."
+            is UnknownHostException -> "Cannot reach ElevenLabs. Check the internet connection or DNS."
+            is IOException -> "ElevenLabs network error (${error.javaClass.simpleName}). Check connection and retry."
+            else -> "ElevenLabs voice request failed. Check API access, Voice ID, and model settings."
+        }
     }
 
     override fun onInit(status: Int) {
@@ -204,8 +242,10 @@ class VoiceManager(
 
         val apiKey = BuildConfig.ELEVENLABS_API_KEY?.trim().orEmpty()
         val voiceId = BuildConfig.ELEVENLABS_VOICE_ID?.trim().orEmpty()
+        _errorMessage.value = null
         if (apiKey.isNotEmpty() && apiKey != "MY_ELEVENLABS_API_KEY" &&
             voiceId.isNotEmpty() && voiceId != "MY_ELEVENLABS_VOICE_ID") {
+            _voiceProviderStatus.value = "ElevenLabs • connecting to selected voice"
             val requestId = ++speechRequestId
             _voiceState.value = VoiceState.PROCESSING
             coroutineScope.launch(Dispatchers.IO) {
@@ -223,32 +263,44 @@ class VoiceManager(
                         .header("Accept", "audio/mpeg")
                         .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
                         .build()
-                    elevenLabsClient.newCall(request).execute().use { response ->
+                    val audioBytes = elevenLabsClient.newCall(request).execute().use { response ->
                         if (!response.isSuccessful) {
-                            throw IllegalStateException("ElevenLabs returned HTTP ${response.code}")
+                            val errorBody = response.body?.string().orEmpty()
+                            val apiStatus = runCatching {
+                                JSONObject(errorBody).optJSONObject("detail")?.optString("status").orEmpty()
+                            }.getOrDefault("")
+                            throw ElevenLabsApiException(response.code, apiStatus)
                         }
-                        val bytes = response.body?.bytes()
-                            ?: throw IllegalStateException("ElevenLabs returned empty audio")
-                        if (bytes.isEmpty()) throw IllegalStateException("ElevenLabs returned empty audio")
-                        val audioFile = File(context.cacheDir, "kiaraa_voice_${requestId}.mp3")
-                        audioFile.writeBytes(bytes)
-                        mainHandler.post {
-                            if (requestId != speechRequestId) {
-                                audioFile.delete()
-                                return@post
-                            }
-                            playElevenLabsFile(audioFile, utteranceId, cleanSpeech)
+                        response.body?.bytes() ?: throw IOException("ElevenLabs returned empty audio")
+                    }
+                    if (audioBytes.isEmpty()) throw IOException("ElevenLabs returned empty audio")
+                    val audioFile = File(context.cacheDir, "kiaraa_voice_${requestId}.mp3")
+                    audioFile.writeBytes(audioBytes)
+                    mainHandler.post {
+                        if (requestId != speechRequestId) {
+                            audioFile.delete()
+                            return@post
                         }
+                        _voiceProviderStatus.value = "ElevenLabs • selected voice active"
+                        _errorMessage.value = null
+                        playElevenLabsFile(audioFile, utteranceId)
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "ElevenLabs voice unavailable; using Android TTS fallback", e)
+                    val failure = describeElevenLabsFailure(e)
+                    Log.w(TAG, "Custom voice request failed: $failure")
                     mainHandler.post {
-                        if (requestId == speechRequestId) speakWithAndroidTts(cleanSpeech, utteranceId)
+                        if (requestId == speechRequestId) {
+                            _voiceProviderStatus.value = "ElevenLabs unavailable • ${(e as? ElevenLabsApiException)?.statusCode?.let { "HTTP $it" } ?: e.javaClass.simpleName}"
+                            _errorMessage.value = failure
+                            _voiceState.value = VoiceState.ERROR
+                            scheduleContinuousRestart()
+                        }
                     }
                 }
             }
             return
         }
+        _voiceProviderStatus.value = "Android system voice • ElevenLabs key/Voice ID not configured"
         speakWithAndroidTts(cleanSpeech, utteranceId)
     }
 
@@ -265,7 +317,7 @@ class VoiceManager(
         textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
     }
 
-    private fun playElevenLabsFile(audioFile: File, utteranceId: String, fallbackText: String) {
+    private fun playElevenLabsFile(audioFile: File, utteranceId: String) {
         stopElevenLabsPlayback()
         try {
             val player = MediaPlayer()
@@ -287,18 +339,23 @@ class VoiceManager(
                 runCatching { mp.release() }
                 if (elevenLabsPlayer === mp) elevenLabsPlayer = null
                 audioFile.delete()
-                _voiceState.value = VoiceState.IDLE
+                _voiceState.value = VoiceState.ERROR
+                _errorMessage.value = "ElevenLabs audio was generated, but Android could not play it. Try again."
+                _voiceProviderStatus.value = "ElevenLabs audio playback failed"
                 _audioRms.value = 0f
                 scheduleContinuousRestart()
                 true
             }
             player.prepareAsync()
         } catch (e: Exception) {
-            Log.w(TAG, "Unable to play ElevenLabs audio; using Android TTS fallback", e)
+            Log.w(TAG, "Unable to play generated ElevenLabs audio (${e.javaClass.simpleName}).")
             runCatching { elevenLabsPlayer?.release() }
             elevenLabsPlayer = null
             audioFile.delete()
-            speakWithAndroidTts(fallbackText, utteranceId)
+            _voiceState.value = VoiceState.ERROR
+            _errorMessage.value = "ElevenLabs audio was generated, but playback failed. Try again."
+            _voiceProviderStatus.value = "ElevenLabs audio playback failed"
+            scheduleContinuousRestart()
         }
     }
 

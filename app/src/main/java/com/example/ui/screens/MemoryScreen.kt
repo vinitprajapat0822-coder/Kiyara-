@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.MemoryItem
 import com.example.ui.MainViewModel
 import com.example.ui.components.LiquidGlassCard
+import com.example.ui.components.liquidGlassBackground
 import com.example.ui.theme.CoolWhite
 import com.example.ui.theme.CyanGlow
 import com.example.ui.theme.ElectricViolet
@@ -86,7 +87,7 @@ fun MemoryScreen(viewModel: MainViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(ObsidianDark)
+            .liquidGlassBackground()
             .padding(14.dp)
     ) {
         // Privacy & Storage Vault Status Banner

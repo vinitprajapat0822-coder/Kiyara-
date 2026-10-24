@@ -18,7 +18,6 @@ import com.example.operating.DeviceCommandParser
 import com.example.operating.DeviceCommandExecutor
 import com.example.operating.KiaraaNotificationListenerService
 import com.example.operating.DeviceActionStatus
-import com.example.ui.components.OrbVisualTheme
 import com.example.voice.VoiceManager
 import com.example.voice.VoiceState
 import kotlinx.coroutines.Dispatchers
@@ -96,10 +95,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _pendingDeviceConfirmation = MutableStateFlow<PendingDeviceConfirmation?>(null)
     val pendingDeviceConfirmation: StateFlow<PendingDeviceConfirmation?> = _pendingDeviceConfirmation.asStateFlow()
 
-    // Orb customization
-    private val _orbTheme = MutableStateFlow(OrbVisualTheme.MIDNIGHT_TERMINAL)
-    val orbTheme: StateFlow<OrbVisualTheme> = _orbTheme.asStateFlow()
-
+    // Single Midnight Liquid Glass visual identity; motion intensity remains adjustable.
     private val _orbPulsationRate = MutableStateFlow(1.0f)
     val orbPulsationRate: StateFlow<Float> = _orbPulsationRate.asStateFlow()
 
@@ -123,10 +119,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateInputText(text: String) {
         _inputText.value = text
-    }
-
-    fun setOrbTheme(theme: OrbVisualTheme) {
-        _orbTheme.value = theme
     }
 
     fun setOrbPulsationRate(rate: Float) {

@@ -55,6 +55,7 @@ import com.example.ui.MainViewModel
 import com.example.ui.components.AnimatedOrb
 import com.example.ui.components.AudioWaveformBar
 import com.example.ui.components.LiquidGlassCard
+import com.example.ui.components.liquidGlassBackground
 import com.example.ui.theme.CoolWhite
 import com.example.ui.theme.CyanGlow
 import com.example.ui.theme.ElectricViolet
@@ -78,7 +79,6 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
     val audioRms by viewModel.voiceManager.audioRms.collectAsState()
     val partialText by viewModel.voiceManager.partialText.collectAsState()
     val recognizedText by viewModel.voiceManager.recognizedText.collectAsState()
-    val orbTheme by viewModel.orbTheme.collectAsState()
     val orbPulsation by viewModel.orbPulsationRate.collectAsState()
 
     var isLiveBaatMode by remember { mutableStateOf(true) } // Live Baat listens again after each response while this screen is active.
@@ -106,7 +106,7 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(ObsidianDark)
+            .liquidGlassBackground()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
@@ -175,8 +175,7 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
                 voiceState = voiceState,
                 size = 210.dp,
                 audioRms = audioRms,
-                visualTheme = orbTheme,
-                pulsationRate = orbPulsation,
+                                pulsationRate = orbPulsation,
                 onClick = {
                     if (voiceState == VoiceState.SPEAKING) {
                         viewModel.voiceManager.stopSpeaking()
