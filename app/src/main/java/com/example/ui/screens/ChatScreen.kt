@@ -71,6 +71,7 @@ import com.example.data.model.ChatMessage
 import com.example.ui.MainViewModel
 import com.example.ui.components.AnimatedOrb
 import com.example.ui.components.LiquidGlassCard
+import com.example.ui.components.LensClock
 import com.example.ui.components.liquidGlassBackground
 import com.example.ui.theme.CoolWhite
 import com.example.ui.theme.CyanGlow
@@ -201,13 +202,19 @@ fun ChatScreen(viewModel: MainViewModel) {
                     }
                 }
 
-                Text(
-                    text = "GEMINI AI",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    fontFamily = FontFamily.Monospace,
-                    color = NeonCyan
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    LensClock(size = 30.dp)
+                    Text(
+                        text = "KIARAA",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = FontFamily.Monospace,
+                        color = NeonCyan
+                    )
+                }
             }
         }
 
