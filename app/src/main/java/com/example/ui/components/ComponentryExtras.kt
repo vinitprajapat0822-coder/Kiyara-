@@ -141,11 +141,8 @@ fun ComponentryWelcomeCard(status: String, modifier: Modifier = Modifier) {
                             fadeIn(tween(300)) + slideInVertically(tween(300)) { it / 7 }
                         } else EnterTransition.None
                     ) {
-                        Text(
-                            text = "A little space for your thoughts.",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = CreamText,
-                            fontWeight = FontWeight.SemiBold
+                        ComponentryKineticTextReveal(
+                            text = "A little space for your thoughts."
                         )
                     }
                     Text(
@@ -168,10 +165,14 @@ fun ComponentryWelcomeCard(status: String, modifier: Modifier = Modifier) {
                     )
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                FeaturePill("Saathi", "Voice")
-                FeaturePill("Memory", "On device")
-                FeaturePill("Assist", "Your control")
+            ComponentryLayeredStack(
+                title = "SAATHI • LIVE BAAT",
+                detail = "Chat, voice and memory in one calm workspace.",
+                modifier = Modifier.fillMaxWidth()
+            )
+            Box(modifier = Modifier.fillMaxWidth().height(18.dp)) {
+                ComponentryDitherGradient(Modifier.fillMaxSize())
+                ComponentrySpectralRibbon(Modifier.fillMaxSize())
             }
             Text(
                 text = "Your notes stay in the on-device vault. Phone actions ask for the access and confirmation they need.",
@@ -179,7 +180,7 @@ fun ComponentryWelcomeCard(status: String, modifier: Modifier = Modifier) {
                 fontSize = 11.sp,
                 lineHeight = 16.sp
             )
-            Text("— KIARAA", color = GoldAccent, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            ComponentrySignature()
         }
     }
 }

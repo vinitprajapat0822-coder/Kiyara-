@@ -59,7 +59,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.ui.MainViewModel
 import com.example.ui.components.AnimatedOrb
 import com.example.ui.components.LiquidGlassCard
-import com.example.ui.components.liquidGlassBackground
+import com.example.ui.components.componentryGrainGradient
 import com.example.ui.theme.AmberWarning
 import com.example.ui.theme.CoolWhite
 import com.example.ui.theme.CyanGlow
@@ -107,7 +107,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
     val writeEnabled = remember(accessRefresh) { Settings.System.canWrite(context) }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().liquidGlassBackground().padding(14.dp),
+        modifier = Modifier.fillMaxSize().componentryGrainGradient().padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {

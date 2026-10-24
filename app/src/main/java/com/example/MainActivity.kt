@@ -66,6 +66,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.operating.RiskLevel
+import com.example.ui.components.ComponentryDockHighlight
 import com.example.ui.AppScreen
 import com.example.ui.MainViewModel
 import com.example.ui.screens.ChatScreen
@@ -343,11 +344,13 @@ fun KiaraaNavigationBar(
                 selected = isSelected,
                 onClick = { onSelectScreen(screen) },
                 icon = {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = label,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    ComponentryDockHighlight(selected = isSelected) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = label,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 },
                 label = {
                     Text(

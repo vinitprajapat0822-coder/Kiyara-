@@ -72,11 +72,13 @@ import com.example.data.model.ChatMessage
 import com.example.ui.MainViewModel
 import com.example.ui.components.AnimatedOrb
 import com.example.ui.components.AnnotatedAssistantText
-import com.example.ui.components.ComponentryStatusFlap
+import com.example.ui.components.ComponentryTextMorph
+import com.example.ui.components.ComponentryDitherGradient
+import com.example.ui.components.ComponentrySpectralRibbon
+import com.example.ui.components.componentryGrainGradient
 import com.example.ui.components.ComponentryWelcomeCard
 import com.example.ui.components.LiquidGlassCard
 import com.example.ui.components.LensClock
-import com.example.ui.components.liquidGlassBackground
 import com.example.ui.theme.CoolWhite
 import com.example.ui.theme.CyanGlow
 import com.example.ui.theme.ElectricViolet
@@ -139,7 +141,7 @@ fun ChatScreen(viewModel: MainViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .imePadding()
-            .liquidGlassBackground()
+            .componentryGrainGradient()
     ) {
         // Top Header Bar
         LiquidGlassCard(
@@ -182,7 +184,7 @@ fun ChatScreen(viewModel: MainViewModel) {
                                 color = NeonCyan
                             )
                         }
-                        ComponentryStatusFlap(
+                        ComponentryTextMorph(
                             status = when {
                                 isGenerating || voiceState == VoiceState.PROCESSING -> "THINKING"
                                 voiceState == VoiceState.LISTENING -> "LISTENING"
@@ -214,6 +216,17 @@ fun ChatScreen(viewModel: MainViewModel) {
                     )
                 }
             }
+        }
+
+        // Low-cost spectral ribbon + dither accent; decorative only, no touch interception.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(16.dp)
+                .padding(horizontal = 28.dp)
+        ) {
+            ComponentryDitherGradient(Modifier.fillMaxSize())
+            ComponentrySpectralRibbon(Modifier.fillMaxSize())
         }
 
         // Quick Suggestion Chips

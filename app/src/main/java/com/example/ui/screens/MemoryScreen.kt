@@ -55,7 +55,8 @@ import com.example.data.model.MemoryItem
 import com.example.ui.MainViewModel
 import com.example.ui.components.LiquidGlassCard
 import com.example.ui.components.ComponentryMemoryDeck
-import com.example.ui.components.liquidGlassBackground
+import com.example.ui.components.ComponentryOrbitCardStack
+import com.example.ui.components.componentryGrainGradient
 import com.example.ui.theme.CoolWhite
 import com.example.ui.theme.CyanGlow
 import com.example.ui.theme.ElectricViolet
@@ -88,7 +89,7 @@ fun MemoryScreen(viewModel: MainViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .liquidGlassBackground()
+            .componentryGrainGradient()
             .padding(14.dp)
     ) {
         // Privacy & Storage Vault Status Banner
@@ -145,6 +146,13 @@ fun MemoryScreen(viewModel: MainViewModel) {
         if (memories.isNotEmpty()) {
             ComponentryMemoryDeck(memories = memories.takeLast(4).reversed())
             Spacer(modifier = Modifier.height(2.dp))
+        } else {
+            ComponentryOrbitCardStack(
+                title = "MEMORY VAULT",
+                detail = "On-device, editable and private. Add a memory only when you choose.",
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { showAddDialog = true }
+            )
         }
 
         Spacer(modifier = Modifier.height(10.dp))
