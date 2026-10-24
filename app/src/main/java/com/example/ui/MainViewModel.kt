@@ -310,7 +310,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val lower = value.lowercase()
         val credentialTerms = listOf("password", "passcode", "one-time password", "verification code", "security code", "otp", "pin code", "api key", "access token", "secret key")
         return credentialTerms.any { lower.contains(it) } ||
-            Regex("""\b(?:otp|pin|verification code|security code)\s*(?:is|:|-)?\s*\d{4,8}\b""", RegexOption.IGNORE_CASE).containsMatchIn(value)
+            Regex("""\b(?:otp|pin|verification code|security code)\s*(?:is|:|-)?\s*\d{4,8}\b""", RegexOption.IGNORE_CASE).containsMatchIn(value) || Regex("""^\s*\d{4,8}\s*$""").containsMatchIn(value)
     }
 
     private fun redactSensitiveForStorage(value: String): String =
