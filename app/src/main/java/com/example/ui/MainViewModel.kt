@@ -303,7 +303,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (result.status == DeviceActionStatus.NEEDS_ACCESSIBILITY) {
                     _currentScreen.value = AppScreen.SETTINGS
                 }
-                chatDao.insertMessage(ChatMessage(role = "assistant", content = result.message.take(1600), mode = "device_control"))
+                // Notification previews can contain private messages. Show/speak them for this
+                // interaction, but never persist their contents in chat history or Memory Vault.
+                val storedResult = if (command is DeviceCommand.ReadNotifications) {
+                    "Recent notification previews were read for this interaction and were not saved to chat history."
+                } else {
+                    result.message.take(1600)
+                }
+                chatDao.insertMessage(ChatMessage(role = "assistant", content = storedResult, mode = "device_control"))
                 if (fromVoice || _currentScreen.value == AppScreen.LIVE_BAAT) voiceManager.speak(spokenResult)
                 val label = when (result.status) {
                     DeviceActionStatus.SUCCESS -> "DONE"
@@ -312,7 +319,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     DeviceActionStatus.NEEDS_ACCESSIBILITY, DeviceActionStatus.NEEDS_PERMISSION -> "PERMISSION NEEDED"
                     DeviceActionStatus.FAILED -> "FAILED"
                 }
-                _statusBanner.value = "${label} • ${result.message.take(180)}"
+                val bannerMessage = if (command is DeviceCommand.ReadNotifications) result.message.take(500) else result.message.take(180)
+                _statusBanner.value = "${label} • ${bannerMessage}"
             } catch (error: Exception) {
                 spokenResult = "Device action failed: ${error.localizedMessage ?: "unknown Android error"}"
                 _statusBanner.value = "FAILED • $spokenResult"
