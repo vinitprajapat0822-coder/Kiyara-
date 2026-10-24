@@ -31,12 +31,14 @@ class DeviceCommandExecutor(context: Context) {
         is DeviceCommand.Clarify -> DeviceActionResult.clarification(command.prompt)
         DeviceCommand.GoHome, DeviceCommand.GoBack, DeviceCommand.RecentApps,
         DeviceCommand.TakeScreenshot, DeviceCommand.LockScreen, DeviceCommand.ScrollForward,
-        DeviceCommand.ScrollBackward, is DeviceCommand.Tap, is DeviceCommand.TypeText,
+        DeviceCommand.ScrollBackward,
         DeviceCommand.ReadScreen, DeviceCommand.OpenNotificationShade -> {
             KiaraaAccessibilityService.executeIfConnected(command) ?: DeviceActionResult.needsAccessibility(
                 "Is action ke liye KIARAA Accessibility enable karni hogi. Settings tab → Device Access → Enable Accessibility par jaakar manually enable karo. Launch par permission force nahi hoti."
             )
         }
+        is DeviceCommand.Tap, is DeviceCommand.TypeText ->
+            DeviceActionResult.failed("Screen tap/text entry is temporarily disabled because the current confirmation flow cannot guarantee the intended target app is foregrounded. No screen action was executed.")
         DeviceCommand.ReadNotifications -> {
             if (!KiaraaNotificationListenerService.hasAccess(app)) {
                 openIntent(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
