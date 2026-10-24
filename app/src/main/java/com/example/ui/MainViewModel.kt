@@ -154,6 +154,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         "KIARAA will tap at (${deviceCommand.x.toInt()}, ${deviceCommand.y.toInt()}) on the current screen. This may activate a button, send content, or submit a form. Verify the intended target before continuing."
                     is DeviceCommand.TypeText -> "Confirm text entry" to
                         "KIARAA will enter this text into the currently focused field:\n“${deviceCommand.text.take(240)}${if (deviceCommand.text.length > 240) "…" else ""}”\n\nKIARAA will not tap Send or Submit. Verify the destination field before continuing."
+                    is DeviceCommand.OpenNotification -> "Open notification ${deviceCommand.index}?" to
+                        "KIARAA will ask Android to open notification ${deviceCommand.index} in its originating app. This may switch apps or reveal private content. No notification preview is shown here. Continue only if you intended to open it."
                     else -> error("Confirmation requested for an unsupported command type.")
                 }
                 _inputText.value = ""
