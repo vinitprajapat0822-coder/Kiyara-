@@ -31,7 +31,7 @@ enum class VolumeOperation { INCREASE, DECREASE, MUTE, UNMUTE, SET }
 enum class VolumeStream { MEDIA, RING, NOTIFICATION }
 enum class MediaPlatform { YOUTUBE, SPOTIFY }
 enum class MediaKeyType { PLAY_PAUSE, NEXT, PREVIOUS }
-enum class SystemSettingsPage { WIFI, BLUETOOTH, MOBILE_NETWORK, AIRPLANE, DISPLAY, SOUND, ACCESSIBILITY, BATTERY_SAVER, DO_NOT_DISTURB, NOTIFICATION_ACCESS, APP_DETAILS }
+enum class SystemSettingsPage { GENERAL, WIFI, BLUETOOTH, MOBILE_NETWORK, AIRPLANE, DISPLAY, SOUND, ACCESSIBILITY, BATTERY_SAVER, DO_NOT_DISTURB, NOTIFICATION_ACCESS, APP_DETAILS }
 
 object DeviceCommandParser {
     private val setBrightness = Regex("""^(?:set\s+)?(?:screen\s+)?brightness(?:\s+to)?\s+(\d{1,3})\s*%?$""")
@@ -146,7 +146,7 @@ object DeviceCommandParser {
 
         Regex("""^(?:open|launch|start|kholo|khol do)\s+(.+?)(?:\s+app)?$""").matchEntire(q)?.let {
             val target = it.groupValues[1].trim()
-            if (target == "settings") return DeviceCommand.OpenSettings(SystemSettingsPage.DISPLAY)
+            if (target == "settings") return DeviceCommand.OpenSettings(SystemSettingsPage.GENERAL)
             if (target.isNotBlank()) return DeviceCommand.LaunchApp(target)
         }
         Regex("""^(.+?)\s+(?:kholo|khol do)$""").matchEntire(q)?.let {
