@@ -109,7 +109,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
         item {
             LiquidGlassCard(backgroundColor = SurfaceElevated.copy(alpha = 0.92f), borderColor = GlassBorderCyan) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text("KIARAA", color = NeonCyan, fontSize = 22.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    Text("KIARAA AI", color = NeonCyan, fontSize = 22.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                     Text("Personal AI • Voice + Chat", color = TextMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                     Spacer(Modifier.height(8.dp))
                     AnimatedOrb(voiceState = VoiceState.IDLE, size = 104.dp, visualTheme = orbTheme, pulsationRate = orbPulsation)
