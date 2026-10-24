@@ -56,6 +56,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
@@ -320,16 +321,14 @@ fun KiaraaNavigationBar(
     onSelectScreen: (AppScreen) -> Unit
 ) {
     NavigationBar(
-        containerColor = SurfaceGlass.copy(alpha = 0.74f),
-        tonalElevation = 8.dp,
+        containerColor = SurfaceGlass.copy(alpha = 0.94f),
+        tonalElevation = 0.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .border(
-                width = 1.dp,
-                color = GlassBorderSubtle,
-                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-            )
-            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .padding(horizontal = 10.dp, vertical = 5.dp)
+            .shadow(14.dp, RoundedCornerShape(28.dp), clip = false)
+            .clip(RoundedCornerShape(28.dp))
+            .border(1.dp, GlassBorderSubtle, RoundedCornerShape(28.dp))
     ) {
         val navItems = listOf(
             Triple(AppScreen.TERMINAL, "Home", Icons.Default.Home),
