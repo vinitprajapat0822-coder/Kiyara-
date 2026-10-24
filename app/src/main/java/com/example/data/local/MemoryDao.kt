@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.example.data.model.MemoryItem
 import kotlinx.coroutines.flow.Flow
 
@@ -24,6 +25,9 @@ interface MemoryDao {
 
     @Delete
     suspend fun deleteMemory(memory: MemoryItem)
+
+    @Update
+    suspend fun updateMemory(memory: MemoryItem)
 
     @Query("DELETE FROM memories WHERE id = :id")
     suspend fun deleteById(id: Long)
