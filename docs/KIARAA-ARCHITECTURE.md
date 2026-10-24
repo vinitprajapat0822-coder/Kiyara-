@@ -129,6 +129,18 @@ Accessibility access is not equivalent to unrestricted access to every pixel or 
 - Inspect logs for secrets/private content; verify accessibility disclosure and privacy policy.
 - Build a signed release only after all tests pass. Public release requires a backend-safe API-key strategy, privacy disclosure, licensing/Play policy review, and a documented limitation list.
 
+## Current safety and data-protection controls
+
+The current review branch adds these safeguards:
+
+- Screen tap and text-entry commands wait for an on-screen confirmation. The dialog explains that a tap may activate a button or submit a form; canceling performs no screen action.
+- Text-entry payloads are not written to chat history. The confirmation content stays in memory only while the dialog is pending.
+- Room no longer uses destructive schema migration fallback. Future schema changes must include a deliberate migration; the app must not silently erase the chat, memory, or audit database to recover.
+- Android backup rules exclude the private Room database and shared preferences from legacy backup, cloud backup, and device transfer. Local chat and memories are not automatically backed up.
+- The quota/network fallback is limited offline guidance, not a separate reasoning engine. The app must label it accordingly.
+
+These controls still require CI verification and real-device testing on Android 10. They do not establish that every action, permission, or screen-understanding flow works on the Redmi device.
+
 ## Git / branch workflow
 
 - `main`: stable baseline only; no direct edits.
