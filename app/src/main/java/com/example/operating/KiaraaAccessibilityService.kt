@@ -112,7 +112,8 @@ class KiaraaAccessibilityService : AccessibilityService() {
             !text.contains("password", true) && !text.contains("passcode", true) &&
             !text.contains("one-time code", true) && !text.contains("verification code", true) &&
             !Regex("""\botp\b""", RegexOption.IGNORE_CASE).containsMatchIn(text)
-        if (safe && text.isNotBlank() && text.length <= 300) output.add(text)
+        val redactedText = Regex("""\b\d{4,8}\b""").replace(text, "••••")
+        if (safe && redactedText.isNotBlank() && redactedText.length <= 300) output.add(redactedText)
         for (i in 0 until node.childCount.coerceAtMost(80)) {
             val child = node.getChild(i) ?: continue
             collectScreenText(child, output, depth + 1)
