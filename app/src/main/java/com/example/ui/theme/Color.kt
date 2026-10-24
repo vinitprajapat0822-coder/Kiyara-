@@ -29,3 +29,9 @@ val HighThinkingAccent = Color(0xFFE4CAA0)
 val GlassBorderCyan = Color(0x665DCEA0)
 val GlassBorderViolet = Color(0x55D4B483)
 val GlassBorderSubtle = Color(0x2EF6F3EC)
+
+// Componentry-inspired naming aliases used by native UI components.
+val MintPrimary = NeonCyan
+val GoldAccent = ElectricViolet
+val CreamText = CoolWhite
+val MintSoft = Color(0x265DCEA0)
