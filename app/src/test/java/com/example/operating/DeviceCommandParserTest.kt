@@ -76,6 +76,11 @@ class DeviceCommandParserTest {
     }
 
     @Test
+    fun openingNotificationRequiresExplicitConfirmation() {
+        assertTrue(DeviceCommand.OpenNotification(2).requiresExplicitConfirmation())
+    }
+
+    @Test
     fun lowRiskCommandsDoNotRequireTheExtraScreenConfirmation() {
         assertTrue(!DeviceCommand.Volume(VolumeOperation.INCREASE).requiresExplicitConfirmation())
     }
