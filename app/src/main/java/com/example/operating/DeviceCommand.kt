@@ -151,7 +151,8 @@ object DeviceCommandParser {
         }
         Regex("""^(.+?)\s+(?:kholo|khol do)$""").matchEntire(q)?.let {
             val target = it.groupValues[1].trim()
-            if (target.isNotBlank() && target != "settings") return DeviceCommand.LaunchApp(target)
+            if (target == "settings") return DeviceCommand.OpenSettings(SystemSettingsPage.GENERAL)
+            if (target.isNotBlank()) return DeviceCommand.LaunchApp(target)
         }
         return null
     }
