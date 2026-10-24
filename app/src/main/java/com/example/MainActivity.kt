@@ -193,7 +193,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                 }
             }
 
-            // Screen taps and text entry can affect a form or the wrong destination.
+            // Screen taps/text entry are blocked; opening an external notification requires explicit confirmation.
             pendingDeviceConfirmation?.let { pending ->
                 AlertDialog(
                     onDismissRequest = { viewModel.cancelPendingDeviceAction() },
