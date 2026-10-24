@@ -35,8 +35,10 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -49,6 +51,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.ui.MainViewModel
 import com.example.ui.components.AnimatedOrb
 import com.example.ui.components.LiquidGlassCard
@@ -73,13 +78,22 @@ import com.example.operating.KiaraaAccessibilityService
 @Composable
 fun SettingsScreen(viewModel: MainViewModel) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val orbTheme by viewModel.orbTheme.collectAsState()
     val orbPulsation by viewModel.orbPulsationRate.collectAsState()
     val activeModel by viewModel.activeModelName.collectAsState()
     var privacyAction by remember { mutableStateOf("") }
-    var refresh by remember { mutableStateOf(0) }
+    var accessRefresh by remember { mutableIntStateOf(0) }
 
-    val accessibilityEnabled = remember(refresh) {
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) accessRefresh += 1
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val accessibilityEnabled = remember(accessRefresh) {
         val master = Settings.Secure.getInt(context.contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1
         val enabled = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
         val component = ComponentName(context, KiaraaAccessibilityService::class.java).flattenToString()
@@ -215,7 +229,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     privacyAction = ""
                 }) { Text("Clear", color = RubyError) }
             },
-            dismissButton = { TextButton(onClick = { privacyAction = ""; refresh = !refresh }) { Text("Cancel", color = TextMuted) } },
+            dismissButton = { TextButton(onClick = { privacyAction = "" }) { Text("Cancel", color = TextMuted) } },
             containerColor = SurfaceElevated
         )
     }
