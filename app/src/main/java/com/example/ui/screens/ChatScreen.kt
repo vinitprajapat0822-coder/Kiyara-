@@ -92,7 +92,6 @@ fun ChatScreen(viewModel: MainViewModel) {
     val messages by viewModel.messages.collectAsState()
     val inputText by viewModel.inputText.collectAsState()
     val isGenerating by viewModel.isGenerating.collectAsState()
-    val isHighThinking by viewModel.isHighThinking.collectAsState()
     val activeModelName by viewModel.activeModelName.collectAsState()
     val orbTheme by viewModel.orbTheme.collectAsState()
     val orbPulsation by viewModel.orbPulsationRate.collectAsState()
@@ -123,12 +122,12 @@ fun ChatScreen(viewModel: MainViewModel) {
     }
 
     val quickChips = listOf(
-        "⚡ JEE Physics: Lenz's Law with traps",
-        "🧪 JEE Chemistry: SN1 vs SN2 stability",
-        "📐 JEE Math: Integration by parts shortcut",
-        "💻 Android Kotlin: Coroutines best practices",
-        "🐧 Termux: Fresh development environment",
-        "🎯 JEE 2027: 45-min study sprint"
+        "💻 Android: Kotlin debugging",
+        "🐧 Termux: Safe command guide",
+        "📱 Phone: Open an app",
+        "🎵 Music: Find a lo-fi playlist",
+        "🧠 Memory: Save a preference",
+        "📋 Daily tasks: Make a plan"
     )
 
     Column(
@@ -206,42 +205,13 @@ fun ChatScreen(viewModel: MainViewModel) {
                     }
                 }
 
-                // High Thinking Mode Toggle Chip
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(
-                            if (isHighThinking) Brush.horizontalGradient(
-                                listOf(ElectricViolet.copy(alpha = 0.35f), HighThinkingAccent.copy(alpha = 0.4f))
-                            ) else Brush.horizontalGradient(listOf(SurfaceDark, SurfaceDark))
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = if (isHighThinking) HighThinkingAccent else GlassBorderSubtle,
-                            shape = RoundedCornerShape(20.dp)
-                        )
-                        .clickable { viewModel.toggleHighThinking() }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                        .testTag("toggle_high_thinking"),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Psychology,
-                            contentDescription = "Thinking Mode",
-                            tint = if (isHighThinking) HighThinkingAccent else TextMuted,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (isHighThinking) "Thinking: HIGH" else "Fast Mode",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            fontFamily = FontFamily.Monospace,
-                            color = if (isHighThinking) CoolWhite else TextMuted
-                        )
-                    }
-                }
+                Text(
+                    text = "GEMINI 3.5",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = FontFamily.Monospace,
+                    color = NeonCyan
+                )
             }
         }
 
@@ -294,7 +264,7 @@ fun ChatScreen(viewModel: MainViewModel) {
 
             if (isGenerating) {
                 item {
-                    GeneratingIndicator(isHighThinking = isHighThinking)
+                    GeneratingIndicator()
                 }
             }
         }
@@ -490,45 +460,6 @@ fun ChatMessageItem(
                         }
                     }
 
-                    // Collapsible thinking section if model generated thoughts
-                    if (message.thoughts.isNotBlank()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0x331E1B4B))
-                                .clickable { showThoughts = !showThoughts }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = if (showThoughts) "Hide Reasoning Chain ▲" else "Show Reasoning Chain (gemini-4-argon) ▼",
-                                fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = HighThinkingAccent
-                            )
-                        }
-
-                        AnimatedVisibility(visible = showThoughts) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFF0C101E))
-                                    .padding(8.dp)
-                            ) {
-                                Text(
-                                    text = message.thoughts,
-                                    fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = TextMuted
-                                )
-                            }
-                        }
-                    }
-                }
-
                 Text(
                     text = message.content,
                     style = MaterialTheme.typography.bodyLarge,
@@ -542,7 +473,7 @@ fun ChatMessageItem(
 }
 
 @Composable
-fun GeneratingIndicator(isHighThinking: Boolean) {
+fun GeneratingIndicator() {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
@@ -554,14 +485,14 @@ fun GeneratingIndicator(isHighThinking: Boolean) {
             CircularProgressIndicator(
                 modifier = Modifier.size(16.dp),
                 strokeWidth = 2.dp,
-                color = if (isHighThinking) HighThinkingAccent else NeonCyan
+                color = NeonCyan
             )
             Spacer(modifier = Modifier.width(10.dp))
             Text(
-                text = if (isHighThinking) "KIARAA deep thinking (gemini-4-argon)..." else "KIARAA is typing...",
+                text = "KIARAA is thinking…",
                 fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace,
-                color = if (isHighThinking) HighThinkingAccent else NeonCyan
+                color = NeonCyan
             )
         }
     }
