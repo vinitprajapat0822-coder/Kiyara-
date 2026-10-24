@@ -28,6 +28,9 @@ interface MemoryDao {
     @Query("DELETE FROM memories WHERE id = :id")
     suspend fun deleteById(id: Long)
 
+    @Query("DELETE FROM memories WHERE source = 'System Initializer'")
+    suspend fun deleteSystemSeededMemories()
+
     @Query("DELETE FROM memories")
     suspend fun clearAll()
 }
