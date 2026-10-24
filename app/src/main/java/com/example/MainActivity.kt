@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -56,6 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -105,6 +108,8 @@ fun MainAppContent(viewModel: MainViewModel) {
     val statusBanner by viewModel.statusBanner.collectAsState()
     val pendingConfirmation by viewModel.pendingConfirmation.collectAsState()
     val pendingDeviceConfirmation by viewModel.pendingDeviceConfirmation.collectAsState()
+    val density = LocalDensity.current
+    val isKeyboardVisible = WindowInsets.ime.getBottom(density) > 0
 
     // Handle Android system back button properly: return to Terminal screen
     BackHandler(enabled = currentScreen != AppScreen.TERMINAL) {
@@ -116,10 +121,13 @@ fun MainAppContent(viewModel: MainViewModel) {
             .fillMaxSize()
             .background(ObsidianDark),
         bottomBar = {
-            KiaraaNavigationBar(
-                currentScreen = currentScreen,
-                onSelectScreen = { viewModel.setScreen(it) }
-            )
+            // Keep the chat input unobstructed: hide the dock while the IME is visible.
+            if (!isKeyboardVisible) {
+                KiaraaNavigationBar(
+                    currentScreen = currentScreen,
+                    onSelectScreen = { viewModel.setScreen(it) }
+                )
+            }
         }
     ) { innerPadding ->
         Box(
