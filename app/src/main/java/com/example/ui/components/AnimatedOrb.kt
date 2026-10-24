@@ -1,8 +1,5 @@
 package com.example.ui.components
 
-import android.animation.ValueAnimator
-import android.os.Build
-import android.provider.Settings
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -32,7 +29,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.CyanGlow
 import com.example.ui.theme.ElectricViolet
-import com.example.ui.theme.EmeraldSuccess
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.RubyError
 import com.example.ui.theme.VioletGlow
@@ -50,59 +46,55 @@ fun AnimatedOrb(
     onClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val reduceMotion = remember {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            !ValueAnimator.areAnimatorsEnabled()
-        } else {
-            Settings.Global.getFloat(
-                context.contentResolver,
-                Settings.Global.ANIMATOR_DURATION_SCALE,
-                1f
-            ) == 0f
-        }
+    val reduceMotion = rememberReducedMotion()
+    val safeRate = pulsationRate.takeIf { it.isFinite() }?.coerceIn(0.5f, 2.0f) ?: 1.0f
+    val infiniteTransition = if (reduceMotion) null else rememberInfiniteTransition(label = "orb_infinite")
+
+    // Under reduced motion, omit the infinite transition entirely rather than looping at 1 ms.
+    val rotation = if (infiniteTransition == null) {
+        0f
+    } else {
+        val animated by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween((10000f / safeRate).toInt().coerceIn(1000, 20000), easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "orb_rotation"
+        )
+        animated
     }
-    val infiniteTransition = rememberInfiniteTransition(label = "orb_infinite")
-
-    // Respect Android's system animation scale / "Remove animations" preference.
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = if (reduceMotion) 0f else 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = if (reduceMotion) 1 else (10000 / pulsationRate).toInt(),
-                easing = LinearEasing
+    val breathing = if (infiniteTransition == null) {
+        1f
+    } else {
+        val animated by infiniteTransition.animateFloat(
+            initialValue = 0.92f,
+            targetValue = 1.08f,
+            animationSpec = infiniteRepeatable(
+                animation = tween((2400f / safeRate).toInt().coerceIn(1200, 4800), easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
             ),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "orb_rotation"
-    )
-
-    val breathing by infiniteTransition.animateFloat(
-        initialValue = if (reduceMotion) 1f else 0.92f,
-        targetValue = if (reduceMotion) 1f else 1.08f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = if (reduceMotion) 1 else (2400 / pulsationRate).toInt(),
-                easing = FastOutSlowInEasing
-            ),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "orb_breathing"
-    )
+            label = "orb_breathing"
+        )
+        animated
+    }
 
     // Dynamic scale driven by audio RMS when speaking or listening
     val dynamicAudioScale = remember { Animatable(1f) }
-    LaunchedEffect(audioRms, voiceState) {
+    LaunchedEffect(audioRms, voiceState, reduceMotion) {
+        val safeRms = audioRms.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0f
         val target = if (reduceMotion) 1f else when (voiceState) {
-            VoiceState.LISTENING -> 1f + (audioRms * 0.45f)
-            VoiceState.SPEAKING -> 1f + (audioRms * 0.6f).coerceAtLeast(0.15f)
+            VoiceState.LISTENING -> (1f + safeRms * 0.45f).coerceIn(1f, 1.35f)
+            VoiceState.SPEAKING -> (1f + (safeRms * 0.6f).coerceAtLeast(0.15f)).coerceIn(1f, 1.6f)
             VoiceState.PROCESSING -> 1.05f
             else -> 1f
         }
-        dynamicAudioScale.animateTo(
-            targetValue = target,
-            animationSpec = tween(durationMillis = 80, easing = LinearEasing)
-        )
+        if (reduceMotion) {
+            dynamicAudioScale.snapTo(1f)
+        } else {
+            dynamicAudioScale.animateTo(target, animationSpec = tween(80, easing = LinearEasing))
+        }
     }
 
     // Determine colors based on visual theme and voice state

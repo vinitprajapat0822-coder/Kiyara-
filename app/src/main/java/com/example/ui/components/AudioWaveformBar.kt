@@ -32,18 +32,23 @@ fun AudioWaveformBar(
     barCount: Int = 18,
     activeColor: Color = NeonCyan
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "waveform_anim")
-    val phase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 6.28f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1200, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "wave_phase"
-    )
-
     val isActive = voiceState == VoiceState.LISTENING || voiceState == VoiceState.SPEAKING
+    val reduceMotion = rememberReducedMotion()
+    val phase = if (isActive && !reduceMotion) {
+        val infiniteTransition = rememberInfiniteTransition(label = "waveform_anim")
+        val animatedPhase by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 6.28f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1200, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "wave_phase"
+        )
+        animatedPhase
+    } else {
+        0f
+    }
 
     Row(
         modifier = modifier.height(36.dp),

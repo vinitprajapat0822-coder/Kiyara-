@@ -15,6 +15,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.example.ui.theme.ElectricViolet
 import com.example.ui.theme.GlassBorderSubtle
 import com.example.ui.theme.NeonCyan
@@ -24,7 +29,7 @@ import kotlin.math.sin
 
 /**
  * Lightweight, native Compose clock inspired by Componentry's Lens Clock.
- * Updates once per minute and uses no WebGL or external assets.
+ * Updates once per second and exposes the current time to TalkBack.
  */
 @Composable
 fun LensClock(
@@ -35,8 +40,9 @@ fun LensClock(
 
     LaunchedEffect(Unit) {
         while (true) {
-            now = System.currentTimeMillis()
-            delay(30_000L)
+            val current = System.currentTimeMillis()
+            now = current
+            delay(1_000L - (current % 1_000L))
         }
     }
 
@@ -46,7 +52,13 @@ fun LensClock(
     val minute = calendar.get(java.util.Calendar.MINUTE).toFloat()
     val second = calendar.get(java.util.Calendar.SECOND).toFloat()
 
-    Canvas(modifier = modifier.size(size)) {
+    val accessibleTime = remember(now) {
+        SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(now))
+    }
+
+    Canvas(modifier = modifier.size(size).semantics {
+        contentDescription = "Analog clock, $accessibleTime"
+    }) {
         val center = Offset(this.size.width / 2f, this.size.height / 2f)
         val radius = this.size.minDimension * 0.46f
 

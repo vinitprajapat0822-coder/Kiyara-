@@ -20,6 +20,7 @@ import com.example.operating.KiaraaNotificationListenerService
 import com.example.operating.DeviceActionStatus
 import com.example.voice.VoiceManager
 import com.example.voice.VoiceState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -122,7 +123,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setOrbPulsationRate(rate: Float) {
-        _orbPulsationRate.value = rate
+        _orbPulsationRate.value = if (rate.isFinite()) rate.coerceIn(0.5f, 2.0f) else 1.0f
     }
 
     fun dismissBanner() {
@@ -175,6 +176,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _isGenerating.value = true
 
         viewModelScope.launch(Dispatchers.IO) {
+            try {
             // 1. Record User Message
             val userMsg = ChatMessage(
                 role = "user",
@@ -257,7 +259,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
 
-            _isGenerating.value = false
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _statusBanner.value = "CHAT ERROR • I couldn't complete that request. Please try again."
+                runCatching {
+                    chatDao.insertMessage(
+                        ChatMessage(
+                            role = "assistant",
+                            content = "The request didn't complete because of an internal or network problem. Your saved messages were preserved; please retry.",
+                            mode = "local_companion"
+                        )
+                    )
+                }
+            } finally {
+                _isGenerating.value = false
+            }
         }
     }
 

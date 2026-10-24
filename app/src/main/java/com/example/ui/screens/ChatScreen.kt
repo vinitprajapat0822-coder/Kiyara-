@@ -150,7 +150,10 @@ fun ChatScreen(viewModel: MainViewModel) {
                 viewModel.voiceManager.stopListening()
                 viewModel.updateInputText("")
             }
-            "/help" -> viewModel.updateInputText("Explain KIARAA's chat, voice, memory and phone-assist features.")
+            "/help" -> {
+                viewModel.updateInputText("")
+                viewModel.sendMessage("Explain KIARAA's chat, voice, memory and phone-assist features.")
+            }
             else -> viewModel.sendMessage()
         }
     }
@@ -189,7 +192,7 @@ fun ChatScreen(viewModel: MainViewModel) {
                         voiceState = voiceState,
                         size = 38.dp,
                         audioRms = audioRms,
-                                                pulsationRate = orbPulsation,
+                        pulsationRate = orbPulsation,
                         onClick = {
                             if (voiceState == VoiceState.SPEAKING) {
                                 viewModel.voiceManager.stopSpeaking()
@@ -419,7 +422,7 @@ fun ChatScreen(viewModel: MainViewModel) {
                 ) {
                     Icon(
                         imageVector = if (voiceState == VoiceState.LISTENING) Icons.Default.Mic else Icons.Default.MicOff,
-                        contentDescription = "Voice Input",
+                        contentDescription = if (voiceState == VoiceState.LISTENING) "Stop voice input" else "Start voice input",
                         tint = if (voiceState == VoiceState.LISTENING) NeonCyan else TextMuted,
                         modifier = Modifier.size(20.dp)
                     )

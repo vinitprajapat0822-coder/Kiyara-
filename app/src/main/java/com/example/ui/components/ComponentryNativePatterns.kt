@@ -1,6 +1,5 @@
 package com.example.ui.components
 
-import android.provider.Settings
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -38,7 +37,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -52,8 +50,6 @@ import com.example.ui.theme.SurfaceGlass
 import com.example.ui.theme.TextMuted
 import kotlinx.coroutines.delay
 import kotlin.math.sin
-
-private fun motionAllowed(): Boolean = true
 
 /** GrainGradient native port: restrained radial color fields plus deterministic fine grain. */
 fun Modifier.componentryGrainGradient(): Modifier = drawBehind {
@@ -127,10 +123,7 @@ fun ComponentryDitherGradient(modifier: Modifier = Modifier) {
 /** KineticTextReveal native port: short, one-shot entrance and full reduced-motion respect. */
 @Composable
 fun ComponentryKineticTextReveal(text: String, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val reduceMotion = remember(context) {
-        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-    }
+    val reduceMotion = rememberReducedMotion()
     var shown by remember(text) { mutableStateOf(reduceMotion) }
     LaunchedEffect(text, reduceMotion) {
         if (!reduceMotion) {
@@ -154,10 +147,7 @@ fun ComponentryKineticTextReveal(text: String, modifier: Modifier = Modifier) {
 /** TextMorph native port: status labels transition without restarting the full screen. */
 @Composable
 fun ComponentryTextMorph(status: String, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val reduceMotion = remember(context) {
-        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-    }
+    val reduceMotion = rememberReducedMotion()
     AnimatedContent(
         targetState = status,
         modifier = modifier,
@@ -181,7 +171,12 @@ fun ComponentryHoverTransition(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) .975f else 1f, animationSpec = tween(110), label = "componentry_press_scale")
+    val reduceMotion = rememberReducedMotion()
+    val scale by animateFloatAsState(
+        targetValue = if (!reduceMotion && pressed) .975f else 1f,
+        animationSpec = tween(if (reduceMotion) 0 else 110),
+        label = "componentry_press_scale"
+    )
     Box(
         modifier = modifier
             .graphicsLayer { scaleX = scale; scaleY = scale }
@@ -251,7 +246,12 @@ fun ComponentrySignature(modifier: Modifier = Modifier) {
 /** MagneticDock native port: selected destinations get a spring-like scale without mouse-only interaction. */
 @Composable
 fun ComponentryDockHighlight(selected: Boolean, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    val scale by animateFloatAsState(if (selected) 1.06f else 1f, animationSpec = tween(160), label = "dock_item_scale")
+    val reduceMotion = rememberReducedMotion()
+    val scale by animateFloatAsState(
+        targetValue = if (!reduceMotion && selected) 1.06f else 1f,
+        animationSpec = tween(if (reduceMotion) 0 else 160),
+        label = "dock_item_scale"
+    )
     Box(modifier = modifier.graphicsLayer { scaleX = scale; scaleY = scale }, contentAlignment = Alignment.Center) {
         content()
     }

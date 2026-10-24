@@ -1,6 +1,5 @@
 package com.example.ui.components
 
-import android.provider.Settings
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
@@ -40,7 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -52,7 +50,6 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.MemoryItem
 import com.example.ui.theme.CreamText
 import com.example.ui.theme.GoldAccent
-import com.example.ui.theme.GlassBorderSubtle
 import com.example.ui.theme.MintPrimary
 import com.example.ui.theme.MintSoft
 import com.example.ui.theme.SurfaceElevated
@@ -69,10 +66,7 @@ import java.util.Locale
  */
 @Composable
 fun ComponentryStatusFlap(status: String, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val motionEnabled = remember(context) {
-        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
-    }
+    val motionEnabled = !rememberReducedMotion()
     val accent = when {
         status.contains("ERROR", ignoreCase = true) -> Color(0xFFE87979)
         status.contains("THINK", ignoreCase = true) -> GoldAccent
@@ -114,10 +108,7 @@ fun ComponentryStatusFlap(status: String, modifier: Modifier = Modifier) {
 
 @Composable
 fun ComponentryWelcomeCard(status: String, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val motionEnabled = remember(context) {
-        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
-    }
+    val motionEnabled = !rememberReducedMotion()
     var nowMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -184,22 +175,6 @@ fun ComponentryWelcomeCard(status: String, modifier: Modifier = Modifier) {
             )
             ComponentrySignature()
         }
-    }
-}
-
-@Composable
-private fun FeaturePill(title: String, detail: String) {
-    Column(
-        modifier = Modifier
-            .width(82.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(SurfaceGlass)
-            .border(1.dp, GlassBorderSubtle, RoundedCornerShape(12.dp))
-            .padding(horizontal = 7.dp, vertical = 7.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
-    ) {
-        Text(title, color = MintPrimary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-        Text(detail, color = TextMuted, fontSize = 9.sp, maxLines = 1)
     }
 }
 
