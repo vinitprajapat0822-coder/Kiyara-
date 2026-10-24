@@ -66,7 +66,7 @@ class KiaraaAccessibilityService : AccessibilityService() {
         return null
     }
 
-    private fun dispatchTap(command: DeviceCommand): DeviceActionResult {
+    private fun dispatchTap(command: DeviceCommand.Tap): DeviceActionResult {
         val path = Path().apply {
             moveTo(command.x, command.y)
             if (command.longPress) lineTo(command.x + 0.1f, command.y + 0.1f)
