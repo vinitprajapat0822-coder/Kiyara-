@@ -69,7 +69,7 @@ class GeminiApiClient {
         }
 
         // Keep one known-configured model; do not probe speculative or unavailable model IDs.
-        val modelsToTry = listOf(Pair(MODEL_FAST, false))
+        val modelsToTry = listOf(Pair(MODEL_FAST, enableHighThinking))
 
         var lastErrorMessage = ""
         var wasRateLimitOrQuota = false
@@ -103,7 +103,7 @@ class GeminiApiClient {
                     }
                     is InternalCallResult.ApiError -> {
                         lastErrorMessage = callResult.message
-                        Log.w(TAG, "Model $modelName error: ${callResult.code} - ${callResult.message}. Trying next fallback...")
+                        Log.w(TAG, "Model $modelName error: ${callResult.code} - ${callResult.message}. No additional model fallback is configured.")
                         // Continue loop to try next fallback
                     }
                 }
