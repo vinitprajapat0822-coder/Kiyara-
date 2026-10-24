@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -70,6 +71,9 @@ import androidx.core.content.ContextCompat
 import com.example.data.model.ChatMessage
 import com.example.ui.MainViewModel
 import com.example.ui.components.AnimatedOrb
+import com.example.ui.components.AnnotatedAssistantText
+import com.example.ui.components.ComponentryStatusFlap
+import com.example.ui.components.ComponentryWelcomeCard
 import com.example.ui.components.LiquidGlassCard
 import com.example.ui.components.LensClock
 import com.example.ui.components.liquidGlassBackground
@@ -178,27 +182,21 @@ fun ChatScreen(viewModel: MainViewModel) {
                                 color = NeonCyan
                             )
                         }
-                        AnimatedContent(
-                            targetState = voiceState,
-                            label = "kiaraa-assistant-status"
-                        ) { state ->
-                            Text(
-                                text = when (state) {
-                                    VoiceState.LISTENING -> "Listening..."
-                                    VoiceState.SPEAKING -> "Speaking..."
-                                    VoiceState.PROCESSING -> "Thinking..."
-                                    VoiceState.ERROR -> "Voice error · Tap to retry"
-                                    VoiceState.IDLE -> "Ready · $activeModelName"
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = when (state) {
-                                    VoiceState.LISTENING, VoiceState.SPEAKING -> NeonCyan
-                                    VoiceState.PROCESSING -> ElectricViolet
-                                    VoiceState.ERROR -> RubyError
-                                    VoiceState.IDLE -> TextDim
-                                }
-                            )
-                        }
+                        ComponentryStatusFlap(
+                            status = when {
+                                isGenerating || voiceState == VoiceState.PROCESSING -> "THINKING"
+                                voiceState == VoiceState.LISTENING -> "LISTENING"
+                                voiceState == VoiceState.SPEAKING -> "SPEAKING"
+                                voiceState == VoiceState.ERROR -> "VOICE ERROR"
+                                else -> "READY"
+                            }
+                        )
+                        Text(
+                            text = activeModelName,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextDim,
+                            maxLines = 1
+                        )
                     }
                 }
 
@@ -257,6 +255,19 @@ fun ChatScreen(viewModel: MainViewModel) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(vertical = 8.dp)
         ) {
+            if (messages.isEmpty()) {
+                item(key = "kiaraa_welcome") {
+                    ComponentryWelcomeCard(
+                        status = when {
+                            isGenerating || voiceState == VoiceState.PROCESSING -> "THINKING"
+                            voiceState == VoiceState.LISTENING -> "LISTENING"
+                            voiceState == VoiceState.SPEAKING -> "SPEAKING"
+                            voiceState == VoiceState.ERROR -> "VOICE ERROR"
+                            else -> "READY"
+                        }
+                    )
+                }
+            }
             items(messages, key = { it.id }) { msg ->
                 ChatMessageItem(
                     message = msg,
@@ -276,7 +287,8 @@ fun ChatScreen(viewModel: MainViewModel) {
         LiquidGlassCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .animateContentSize(),
             shape = RoundedCornerShape(18.dp),
             backgroundColor = SurfaceElevated.copy(alpha = 0.9f),
             borderColor = if (voiceState == VoiceState.LISTENING) NeonCyan else GlassBorderCyan
@@ -447,13 +459,20 @@ fun ChatMessageItem(
                     }
                 }
 
-                Text(
-                    text = message.content,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = CoolWhite,
-                    fontSize = 14.sp,
-                    lineHeight = 21.sp
-                )
+                if (isUser) {
+                    Text(
+                        text = message.content,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = CoolWhite,
+                        fontSize = 14.sp,
+                        lineHeight = 21.sp
+                    )
+                } else {
+                    AnnotatedAssistantText(
+                        text = message.content,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
     }
