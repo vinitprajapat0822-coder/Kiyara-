@@ -142,6 +142,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         val deviceCommand = DeviceCommandParser.parse(trimmed)
         if (deviceCommand != null) {
+            // These screen actions are blocked in DeviceCommandExecutor until target-app
+            // focus can be guaranteed; do not show a misleading "Confirm action" dialog.
+            if (deviceCommand is DeviceCommand.Tap || deviceCommand is DeviceCommand.TypeText) {
+                executeDeviceCommand(trimmed, deviceCommand, fromVoice)
+                return
+            }
             if (deviceCommand.requiresExplicitConfirmation()) {
                 val (title, details) = when (deviceCommand) {
                     is DeviceCommand.Tap -> "Confirm screen tap" to
