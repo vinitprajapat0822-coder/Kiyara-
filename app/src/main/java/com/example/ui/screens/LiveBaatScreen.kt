@@ -32,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -80,7 +81,12 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
     val orbTheme by viewModel.orbTheme.collectAsState()
     val orbPulsation by viewModel.orbPulsationRate.collectAsState()
 
-    var isLiveBaatMode by remember { mutableStateOf(true) } // true: Live Baat, false: Saathi Mode
+    var isLiveBaatMode by remember { mutableStateOf(true) } // Live Baat listens again after each response while this screen is active.
+
+    LaunchedEffect(isLiveBaatMode) {
+        viewModel.voiceManager.setContinuousListeningEnabled(isLiveBaatMode)
+        if (!isLiveBaatMode) viewModel.voiceManager.cancelListening()
+    }
 
     var hasAudioPermission by remember {
         mutableStateOf(
@@ -175,8 +181,19 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
                     if (voiceState == VoiceState.SPEAKING) {
                         viewModel.voiceManager.stopSpeaking()
                     } else if (hasAudioPermission) {
-                        if (voiceState == VoiceState.LISTENING) viewModel.voiceManager.stopListening()
-                        else viewModel.voiceManager.startListening()
+                        if (isLiveBaatMode) {
+                            if (voiceState == VoiceState.LISTENING) {
+                                viewModel.voiceManager.setContinuousListeningEnabled(false)
+                                viewModel.voiceManager.cancelListening()
+                            } else {
+                                viewModel.voiceManager.setContinuousListeningEnabled(true)
+                                viewModel.voiceManager.startListening()
+                            }
+                        } else if (voiceState == VoiceState.LISTENING) {
+                            viewModel.voiceManager.stopListening()
+                        } else {
+                            viewModel.voiceManager.startListening()
+                        }
                     } else {
                         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     }
@@ -267,7 +284,8 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
                         text = if (partialText.isNotBlank()) "\"$partialText...\""
                         else if (recognizedText.isNotBlank()) "\"$recognizedText\""
                         else if (voiceState == VoiceState.SPEAKING) "KIARAA vocalizing response..."
-                        else "Hinglish voice ready. Ask about coding, daily tasks, or phone controls.",
+                        else if (isLiveBaatMode) "Live Baat will listen again after each response while this screen stays open."
+                    else "Saathi listens once per turn. Ask about coding, daily tasks, or phone controls.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (partialText.isNotBlank() || recognizedText.isNotBlank()) NeonCyan else TextMuted,
                         textAlign = TextAlign.Center
@@ -317,7 +335,13 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
             IconButton(
                 onClick = {
                     if (hasAudioPermission) {
-                        if (voiceState == VoiceState.LISTENING) {
+                        if (isLiveBaatMode && voiceState == VoiceState.LISTENING) {
+                            viewModel.voiceManager.setContinuousListeningEnabled(false)
+                            viewModel.voiceManager.cancelListening()
+                        } else if (isLiveBaatMode) {
+                            viewModel.voiceManager.setContinuousListeningEnabled(true)
+                            viewModel.voiceManager.startListening()
+                        } else if (voiceState == VoiceState.LISTENING) {
                             viewModel.voiceManager.stopListening()
                         } else {
                             viewModel.voiceManager.startListening()
