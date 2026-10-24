@@ -66,6 +66,21 @@ class DeviceCommandParserTest {
     }
 
     @Test
+    fun screenTapRequiresExplicitConfirmation() {
+        assertTrue(DeviceCommand.Tap(120f, 240f).requiresExplicitConfirmation())
+    }
+
+    @Test
+    fun textEntryRequiresExplicitConfirmation() {
+        assertTrue(DeviceCommand.TypeText("Send this message").requiresExplicitConfirmation())
+    }
+
+    @Test
+    fun lowRiskCommandsDoNotRequireTheExtraScreenConfirmation() {
+        assertTrue(!DeviceCommand.Volume(VolumeOperation.INCREASE).requiresExplicitConfirmation())
+    }
+
+    @Test
     fun normalConversationIsNotMisclassifiedAsDeviceAction() {
         assertNull(DeviceCommandParser.parse("Can you explain Kotlin coroutines in Hinglish?"))
     }
