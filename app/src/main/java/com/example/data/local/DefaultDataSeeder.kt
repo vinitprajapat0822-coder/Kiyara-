@@ -24,7 +24,7 @@ class DefaultDataSeeder(
 
     private fun createWelcomeMessage() = ChatMessage(
         role = "assistant",
-        content = "Namaste! Main hoon **KIARAA** (Codename: MR.V — Midnight Terminal), aapki voice-first personal AI assistant. Coding, Android, Termux, daily planning, ya phone controls (sirf permission ke saath) — bataiye kya help chahiye?",
+        content = "Hi! Main KIARAA AI hoon. Kya haal hai? Batao, main kis cheez mein help karun?",
         mode = "general"
     )
 }
