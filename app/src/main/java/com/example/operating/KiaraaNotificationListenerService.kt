@@ -50,8 +50,9 @@ class KiaraaNotificationListenerService : NotificationListenerService() {
                     val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty().ifBlank { "App notification" }
                     val body = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
                         ?: extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
+                    val safeTitle = sanitizeNotificationText(title)
                     val safeBody = sanitizeNotificationText(body)
-                    "${index + 1}. ${title.take(100)}: ${safeBody.take(220)}"
+                    "${index + 1}. ${safeTitle.take(100)}: ${safeBody.take(220)}"
                 }.joinToString(". ")
                 DeviceActionResult.success("Recent notifications: $summary")
             }.getOrElse { DeviceActionResult.failed("Notifications read nahi ho payin: ${it.message ?: "Android notification access error"}") }
