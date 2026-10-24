@@ -38,7 +38,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
-import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -75,7 +74,6 @@ import com.example.ui.theme.CyanGlow
 import com.example.ui.theme.ElectricViolet
 import com.example.ui.theme.GlassBorderCyan
 import com.example.ui.theme.GlassBorderSubtle
-import com.example.ui.theme.HighThinkingAccent
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.ObsidianDark
 import com.example.ui.theme.SurfaceDark
@@ -378,7 +376,6 @@ fun ChatMessageItem(
     onSpeak: () -> Unit
 ) {
     val isUser = message.role == "user"
-    var showThoughts by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -422,22 +419,6 @@ fun ChatMessageItem(
                                 fontFamily = FontFamily.Monospace,
                                 color = NeonCyan
                             )
-                            if (message.mode == "high_thinking") {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(ElectricViolet.copy(alpha = 0.25f))
-                                        .padding(horizontal = 4.dp, vertical = 1.dp)
-                                ) {
-                                    Text(
-                                        text = "THINKING HIGH",
-                                        fontSize = 8.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = HighThinkingAccent
-                                    )
-                                }
-                            }
                         }
 
                         Row {
