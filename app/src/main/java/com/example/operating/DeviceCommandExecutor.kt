@@ -99,18 +99,26 @@ class DeviceCommandExecutor(context: Context) {
             VolumeStream.RING -> AudioManager.STREAM_RING
             VolumeStream.NOTIFICATION -> AudioManager.STREAM_NOTIFICATION
         }
+        val before = audio.getStreamVolume(stream)
+        val max = audio.getStreamMaxVolume(stream).coerceAtLeast(1)
+        val target = ((command.percent ?: 50) * max / 100).coerceIn(0, max)
         when (command.operation) {
             VolumeOperation.INCREASE -> audio.adjustStreamVolume(stream, AudioManager.ADJUST_RAISE, 0)
             VolumeOperation.DECREASE -> audio.adjustStreamVolume(stream, AudioManager.ADJUST_LOWER, 0)
             VolumeOperation.MUTE -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) audio.adjustStreamVolume(stream, AudioManager.ADJUST_MUTE, 0) else audio.setStreamVolume(stream, 0, 0)
-            VolumeOperation.UNMUTE -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) audio.adjustStreamVolume(stream, AudioManager.ADJUST_UNMUTE, 0) else audio.setStreamVolume(stream, (audio.getStreamMaxVolume(stream) / 2).coerceAtLeast(1), 0)
-            VolumeOperation.SET -> {
-                val max = audio.getStreamMaxVolume(stream)
-                audio.setStreamVolume(stream, ((command.percent ?: 50) * max / 100).coerceIn(0, max), 0)
-            }
+            VolumeOperation.UNMUTE -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) audio.adjustStreamVolume(stream, AudioManager.ADJUST_UNMUTE, 0) else audio.setStreamVolume(stream, (max / 2).coerceAtLeast(1), 0)
+            VolumeOperation.SET -> audio.setStreamVolume(stream, target, 0)
         }
+        val current = audio.getStreamVolume(stream)
+        val muted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && audio.isStreamMute(stream)
         val label = when (command.stream) { VolumeStream.MEDIA -> "Media"; VolumeStream.RING -> "Ringtone"; VolumeStream.NOTIFICATION -> "Notification" }
-        DeviceActionResult.success("$label volume updated (${audio.getStreamVolume(stream) * 100 / audio.getStreamMaxVolume(stream).coerceAtLeast(1)}%).")
+        when (command.operation) {
+            VolumeOperation.INCREASE -> if (current > before) DeviceActionResult.success("${label} volume increased to ${current * 100 / max}%.") else DeviceActionResult.partial("${label} volume is already at maximum, or Android blocked the change.")
+            VolumeOperation.DECREASE -> if (current < before) DeviceActionResult.success("${label} volume decreased to ${current * 100 / max}%.") else DeviceActionResult.partial("${label} volume is already at minimum, or Android blocked the change.")
+            VolumeOperation.MUTE -> if (muted || current == 0) DeviceActionResult.success("${label} volume muted.") else DeviceActionResult.partial("Android did not confirm that ${label} volume was muted.")
+            VolumeOperation.UNMUTE -> if (!muted && current > 0) DeviceActionResult.success("${label} volume unmuted.") else DeviceActionResult.partial("Android did not confirm that ${label} volume was unmuted.")
+            VolumeOperation.SET -> if (current == target) DeviceActionResult.success("${label} volume set to ${current * 100 / max}%.") else DeviceActionResult.failed("Android did not apply the requested ${label} volume value.")
+        }
     }.getOrElse { DeviceActionResult.failed("Volume change failed: ${it.message ?: "audio service error"}") }
 
     private fun launchApp(requested: String): DeviceActionResult {
@@ -156,6 +164,7 @@ class DeviceCommandExecutor(context: Context) {
     }
 
     private fun settingsIntent(page: SystemSettingsPage): Intent = when (page) {
+        SystemSettingsPage.GENERAL -> Intent(Settings.ACTION_SETTINGS)
         SystemSettingsPage.WIFI -> Intent(Settings.ACTION_WIFI_SETTINGS)
         SystemSettingsPage.BLUETOOTH -> Intent(Settings.ACTION_BLUETOOTH_SETTINGS)
         SystemSettingsPage.MOBILE_NETWORK -> Intent(Settings.ACTION_WIRELESS_SETTINGS)
