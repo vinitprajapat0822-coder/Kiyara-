@@ -138,7 +138,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun sendMessage(userText: String = _inputText.value, fromVoice: Boolean = false) {
         val trimmed = userText.trim()
-        if (trimmed.isEmpty() || _isGenerating.value) return
+        if (trimmed.isEmpty() || _isGenerating.value || _pendingDeviceConfirmation.value != null) return
 
         val deviceCommand = DeviceCommandParser.parse(trimmed)
         if (deviceCommand != null) {
@@ -226,7 +226,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     } else if (result.isRateLimitOrQuota) {
                         // Resilient recovery: Answer using local reasoning engine so user is never blocked
                         val localResponse = generateLocalCompanionResponse(trimmed) +
-                            "\n\n*(ℹ️ Note: Gemini API rate limit or quota was reached on available models. KIARAA answered using the local fallback engine.)*"
+                            "\n\n*(Note: Gemini API rate limit or quota was reached. This is a limited offline response; full AI reasoning is unavailable until the API works again.)*"
                         val assistantMsg = ChatMessage(
                             role = "assistant",
                             content = localResponse,
@@ -237,7 +237,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         if (fromVoice || _currentScreen.value == AppScreen.LIVE_BAAT) {
                             voiceManager.speak(localResponse)
                         }
-                        _statusBanner.value = "Gemini API rate limit or quota reached. Switched to the local companion fallback."
+                        _statusBanner.value = "Gemini API rate limit or quota reached. Offline responses are limited."
                     } else {
                         val localResponse = generateLocalCompanionResponse(trimmed)
                         val assistantMsg = ChatMessage(
