@@ -37,12 +37,24 @@ class DeviceCommandExecutor(context: Context) {
                 "Is action ke liye KIARAA Accessibility enable karni hogi. Settings tab → Device Access → Enable Accessibility par jaakar manually enable karo. Launch par permission force nahi hoti."
             )
         }
-        DeviceCommand.ReadNotifications -> DeviceActionResult.partial(
-            "Notification text reader abhi connected nahi hai. “Notifications kholo” se notification shade khul sakta hai; private notifications ko automatically read/store nahi kiya gaya."
-        )
-        is DeviceCommand.OpenNotification -> DeviceActionResult.partial(
-            "Specific notification open karna abhi supported nahi hai. Notification panel kholo aur item manually select karo."
-        )
+        DeviceCommand.ReadNotifications -> {
+            if (!KiaraaNotificationListenerService.hasAccess(app)) {
+                openIntent(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                DeviceActionResult.needsPermission(
+                    "Notification Access settings kholi hain. KIARAA ko manually enable karo, phir “read notifications” dobara bolo. Notifications Memory Vault mein save nahi hoti."
+                )
+            } else {
+                KiaraaNotificationListenerService.readRecent()
+            }
+        }
+        is DeviceCommand.OpenNotification -> {
+            if (!KiaraaNotificationListenerService.hasAccess(app)) {
+                openIntent(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                DeviceActionResult.needsPermission("Notification Access settings kholi hain. KIARAA ko manually enable karo, phir command repeat karo.")
+            } else {
+                KiaraaNotificationListenerService.openRecent(command.index)
+            }
+        }
     }
 
     private fun changeBrightness(command: DeviceCommand.Brightness): DeviceActionResult {
