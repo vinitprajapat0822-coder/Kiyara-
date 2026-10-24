@@ -104,6 +104,7 @@ fun MainAppContent(viewModel: MainViewModel) {
     val currentScreen by viewModel.currentScreen.collectAsState()
     val statusBanner by viewModel.statusBanner.collectAsState()
     val pendingConfirmation by viewModel.pendingConfirmation.collectAsState()
+    val pendingDeviceConfirmation by viewModel.pendingDeviceConfirmation.collectAsState()
 
     // Handle Android system back button properly: return to Terminal screen
     BackHandler(enabled = currentScreen != AppScreen.TERMINAL) {
@@ -190,6 +191,52 @@ fun MainAppContent(viewModel: MainViewModel) {
                         }
                     }
                 }
+            }
+
+            // Screen taps and text entry can affect a form or the wrong destination.
+            pendingDeviceConfirmation?.let { pending ->
+                AlertDialog(
+                    onDismissRequest = { viewModel.cancelPendingDeviceAction() },
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = "Confirm device action",
+                                tint = AmberWarning,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = pending.title,
+                                color = CoolWhite,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
+                    },
+                    text = {
+                        Text(
+                            text = pending.details,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextMuted
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = { viewModel.confirmPendingDeviceAction() },
+                            colors = ButtonDefaults.buttonColors(containerColor = AmberWarning)
+                        ) {
+                            Text("Confirm action", color = CoolWhite, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { viewModel.cancelPendingDeviceAction() }) {
+                            Text("Cancel", color = TextMuted)
+                        }
+                    },
+                    containerColor = SurfaceElevated
+                )
             }
 
             // Explicit Risk Confirmation Dialog (Section 12 Safeguards)
