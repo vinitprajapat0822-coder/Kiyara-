@@ -26,29 +26,29 @@ import com.example.ui.theme.GlassBorderSubtle
 import com.example.ui.theme.ObsidianDark
 import com.example.ui.theme.SurfaceGlass
 
-/** Low-cost ambient backdrop with tinted gradients for older Android devices. */
+/** Low-cost KIARAA ambient backdrop; avoids heavy WebGL on older Android devices. */
 fun Modifier.liquidGlassBackground(): Modifier = this.drawBehind {
     drawRect(ObsidianDark)
     val radius = maxOf(size.width, size.height) * 0.82f
-    val cyanCenter = Offset(size.width * 0.16f, size.height * 0.10f)
-    val violetCenter = Offset(size.width * 0.92f, size.height * 0.64f)
+    val mintCenter = Offset(size.width * 0.16f, size.height * 0.10f)
+    val goldCenter = Offset(size.width * 0.92f, size.height * 0.64f)
     drawCircle(
         brush = Brush.radialGradient(
-            colors = listOf(Color(0x2418BDF4), Color.Transparent),
-            center = cyanCenter,
+            colors = listOf(Color(0x245DCEA0), Color.Transparent),
+            center = mintCenter,
             radius = radius
         ),
         radius = radius,
-        center = cyanCenter
+        center = mintCenter
     )
     drawCircle(
         brush = Brush.radialGradient(
-            colors = listOf(Color(0x228B5CF6), Color.Transparent),
-            center = violetCenter,
+            colors = listOf(Color(0x22D4B483), Color.Transparent),
+            center = goldCenter,
             radius = radius * 0.78f
         ),
         radius = radius * 0.78f,
-        center = violetCenter
+        center = goldCenter
     )
 }
 
@@ -105,7 +105,7 @@ fun LiquidGlassCard(
                             colors = listOf(
                                 Color.Transparent,
                                 Color.White.copy(alpha = 0.45f),
-                                Color(0x6685E8FF),
+                                Color(0x66D4B483),
                                 Color.White.copy(alpha = 0.20f),
                                 Color.Transparent
                             )
