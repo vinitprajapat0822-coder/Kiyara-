@@ -58,7 +58,17 @@ class KiaraaNotificationListenerService : NotificationListenerService() {
             }.getOrElse { DeviceActionResult.failed("Notifications read nahi ho payin: ${it.message ?: "Android notification access error"}") }
         }
 
-        fun openRecent(indexOneBased: Int): DeviceActionResult {
+        fun captureNotificationKey(indexOneBased: Int): String? {
+            val service = activeService ?: return null
+            return runCatching {
+                service.activeNotifications.orEmpty()
+                    .filterNot { it.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0 }
+                    .sortedByDescending { it.postTime }
+                    .getOrNull(indexOneBased - 1)?.key
+            }.getOrNull()
+        }
+
+        fun openRecent(indexOneBased: Int, expectedKey: String?): DeviceActionResult {
             val service = activeService ?: return DeviceActionResult.needsPermission(
                 "Notification access enable karna hoga. Settings tab se Notification Access kholkar allow karo."
             )
@@ -66,8 +76,14 @@ class KiaraaNotificationListenerService : NotificationListenerService() {
                 val items = service.activeNotifications.orEmpty()
                     .filterNot { it.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0 }
                     .sortedByDescending { it.postTime }
+                if (expectedKey.isNullOrBlank()) {
+                    return DeviceActionResult.failed("Notification target could not be safely verified before confirmation. Nothing was opened; read notifications again and retry.")
+                }
                 val item = items.getOrNull(indexOneBased - 1)
                     ?: return DeviceActionResult.failed("Notification number $indexOneBased available nahi hai; “read notifications” se fresh list lo.")
+                if (item.key != expectedKey) {
+                    return DeviceActionResult.failed("Notification list changed after confirmation. Nothing was opened; read notifications again and retry.")
+                }
                 val pendingIntent = item.notification.contentIntent
                     ?: return DeviceActionResult.failed("Is notification mein open action available nahi hai.")
                 pendingIntent.send()
