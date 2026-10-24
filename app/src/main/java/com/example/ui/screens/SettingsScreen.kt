@@ -110,7 +110,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
             LiquidGlassCard(backgroundColor = SurfaceElevated.copy(alpha = 0.92f), borderColor = GlassBorderCyan) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     Text("KIARAA", color = NeonCyan, fontSize = 22.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                    Text("MR.V • MIDNIGHT TERMINAL", color = TextMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                    Text("Personal AI • Voice + Chat", color = TextMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                     Spacer(Modifier.height(8.dp))
                     AnimatedOrb(voiceState = VoiceState.IDLE, size = 104.dp, visualTheme = orbTheme, pulsationRate = orbPulsation)
                     Text("Your voice-first personal assistant", color = CoolWhite, fontSize = 13.sp)
@@ -213,7 +213,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
             }
         }
         item {
-            Text("KIARAA • MR.V • Midnight Terminal", modifier = Modifier.fillMaxWidth().padding(8.dp), color = TextDim, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+            Text("KIARAA AI • Personal Assistant", modifier = Modifier.fillMaxWidth().padding(8.dp), color = TextDim, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
         }
     }
 
