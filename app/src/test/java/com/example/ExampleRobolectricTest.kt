@@ -26,7 +26,7 @@ class ExampleRobolectricTest {
   fun readStringFromContext_matchesKiaraa() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val appName = context.getString(R.string.app_name)
-    assertEquals("KIARAA", appName)
+    assertEquals("KIARAA AI", appName)
   }
 
   @Test
