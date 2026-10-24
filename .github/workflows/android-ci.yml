@@ -66,24 +66,12 @@ jobs:
       - name: Verify Wrapper and Gradle version
         run: ./gradlew --no-daemon --version
 
-      - name: Configure API secrets for Gradle (never print secret values)
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
-          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+      - name: Configure non-secret CI placeholders
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "${GEMINI_API_KEY:-}" ]]; then
-            echo "::error::GEMINI_API_KEY repository secret is missing. Add it in Settings > Secrets and variables > Actions, then rerun this workflow."
-            exit 1
-          fi
-          : > .env
-          printf 'GEMINI_API_KEY=%s\n' "$GEMINI_API_KEY" >> .env
-          if [[ -n "${ELEVENLABS_API_KEY:-}" ]]; then printf 'ELEVENLABS_API_KEY=%s\n' "$ELEVENLABS_API_KEY" >> .env; fi
-          if [[ -n "${ELEVENLABS_VOICE_ID:-}" ]]; then printf 'ELEVENLABS_VOICE_ID=%s\n' "$ELEVENLABS_VOICE_ID" >> .env; fi
-          echo "Gemini API secret configured (value hidden)."
-          if [[ -n "${ELEVENLABS_API_KEY:-}" && -n "${ELEVENLABS_VOICE_ID:-}" ]]; then echo "ElevenLabs secrets configured (values hidden)."; else echo "ElevenLabs secrets are optional or incomplete; Android TTS fallback remains available."; fi
+          cp .env.example .env
+          echo "CI uses placeholders only; no provider credentials are embedded in this APK."
 
       - name: Run unit tests and build debug APK
         run: ./gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug
