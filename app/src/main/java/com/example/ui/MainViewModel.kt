@@ -309,12 +309,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (result.status == DeviceActionStatus.NEEDS_ACCESSIBILITY) {
                     _currentScreen.value = AppScreen.SETTINGS
                 }
-                // Notification previews can contain private messages. Show/speak them for this
-                // interaction, but never persist their contents in chat history or Memory Vault.
-                val storedResult = if (command is DeviceCommand.ReadNotifications) {
-                    "Recent notification previews were read for this interaction and were not saved to chat history."
-                } else {
-                    result.message.take(1600)
+                // Notification previews and screen text can contain private messages or account data.
+                // Show/speak results for this interaction, but never persist their contents in chat history.
+                val storedResult = when (command) {
+                    is DeviceCommand.ReadNotifications ->
+                        "Recent notification previews were read for this interaction and were not saved to chat history."
+                    DeviceCommand.ReadScreen ->
+                        "Screen text was read for this interaction and was not saved to chat history."
+                    else -> result.message.take(1600)
                 }
                 chatDao.insertMessage(ChatMessage(role = "assistant", content = storedResult, mode = "device_control"))
                 if (fromVoice || _currentScreen.value == AppScreen.LIVE_BAAT) voiceManager.speak(spokenResult)
