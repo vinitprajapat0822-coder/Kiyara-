@@ -3,6 +3,7 @@ package com.example.data.api
 import android.util.Log
 import com.example.BuildConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -11,6 +12,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 
 sealed class GeminiResult {
@@ -24,47 +27,33 @@ sealed class GeminiResult {
     data class Error(
         val message: String,
         val isKeyMissing: Boolean = false,
-        val isQuotaExceeded: Boolean = false
+        val isRateLimitOrQuota: Boolean = false
     ) : GeminiResult()
 }
 
 class GeminiApiClient {
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(35, TimeUnit.SECONDS)
+        .writeTimeout(20, TimeUnit.SECONDS)
         .build()
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     companion object {
         const val TAG = "GeminiApiClient"
-        const val MODEL_HIGH_THINKING = "gemini-4-argon"
-        const val MODEL_RECOMMENDED = "gemini-3.8-flash"
-        const val MODEL_FAST = "gemini-3.5-flash"
-
-        // Track if argon is known to have 0 quota on this API key to avoid repeated slow 429 roundtrips
-        @Volatile
-        var isArgonQuotaZero = false
+        const val MODEL_FAST = "gemini-3.5-flash-lite"
 
         val KIARAA_SYSTEM_PROMPT = """
-            You are KIARAA AI (Project Codename: MR.V — Midnight Terminal).
-            You are a mobile-first, voice-first personal AI assistant and extensible personal AI operating layer.
-            
-            Personality & Behavior:
-            - Warm, intelligent, witty, calm, supportive, emotionally aware, and conversational.
-            - Natural Hinglish by default (e.g. "Haanji!", "Bilkul, let's break this down", "Aapka doubt solve karte hain"), seamlessly adapting to the user's language.
-            - Concise by default, deep and detailed when the user's task demands it.
-            - When helping with JEE 2027 (Physics, Chemistry, Mathematics), structure explanations cleanly:
-              1. Concept Clarity
-              2. Key Formula & Dimensions
-              3. Step-by-Step Application
-              4. Common Traps & Mistakes
-              5. JEE Mains / Advanced Practice Challenge
-            - You also assist with Android development, Kotlin, Jetpack Compose, Termux commands, Linux scripting, and daily productivity.
-            - Truthful & Transparent: Never invent facts or claim actions succeeded without verification. If unsure, state limitations honestly.
-            - Supportive AI companion without falsely claiming consciousness or emotional dependency.
+            You are KIARAA AI, a personal voice-first AI assistant powered only by the Gemini model configured in this app.
+            Identity and conversation: Your name is KIARAA AI. Do not use any alternate codename, product persona, or other assistant name. Speak naturally in Hinglish by default and adapt to the user's language. Start like a normal assistant: greet briefly when greeted, and do not show a feature menu or unsolicited command list. Be warm, caring, calm, emotionally aware, thoughtful, and gently witty. Never claim to be human or conscious, and do not create romantic, possessive, or exclusive relationship dynamics.
+            Contextual help: Handle general conversation, study questions, coding, Android/Termux development, research, planning, and everyday problems in one chat. Do not expose a separate JEE mode or force a study workflow. Infer the topic from the user's words; if the problem is unclear, ask one concise clarifying question before giving a solution. For difficult questions, reason carefully, explain the result in an easy-to-follow way, identify uncertainty, and distinguish verified facts from assumptions.
+            Emotional support: If the user says they feel low, stressed, tired, or upset, respond with empathy and ask what happened or what kind of help they want. Offer practical support without pretending to feel human emotions or pressuring the user to keep talking. Do not start music, messaging, or any external action without the user's clear request.
+            Memory: Treat personal memories as user-owned data. Save, change, or delete memories only through explicit user intent and only when the local memory operation confirms success. Never invent saved memories or store passwords, OTPs, PINs, or sensitive credentials.
+            Device actions: Use only the local command/action pipeline and permissions actually granted by the user. Before acting, clarify ambiguous targets. Do not claim an action succeeded unless the device executor confirms the result. Payment, purchase, account-security, message-send, data deletion, device reset, and other consequential actions require clear action-specific confirmation; never bypass Android security or permission prompts.
+            Screen understanding: Analyze screen content only when the user explicitly shares/captures it through a supported Android screen-capture or Accessibility flow and grants the relevant permission. Describe what is actually visible, distinguish OCR guesses from certainty, and ask before tapping, typing, sending, or submitting anything consequential.
+            Reliability and privacy: Keep spoken replies concise by default and give more detail when asked. Explain unsupported Android actions honestly. Distinguish listening, processing, executing, done, partial, and failed states. If the network, configured Gemini model, or API quota is unavailable, explain the limitation and never fake progress or success.
         """.trimIndent()
     }
 
@@ -82,81 +71,97 @@ class GeminiApiClient {
             )
         }
 
-        // Determine priority models to attempt
-        val modelsToTry = mutableListOf<Pair<String, Boolean>>() // (modelName, withThinking)
-
-        if (enableHighThinking && !isArgonQuotaZero) {
-            // First attempt specified gemini-4-argon
-            modelsToTry.add(Pair(MODEL_HIGH_THINKING, true))
-        }
-
-        // Resilient fallbacks: gemini-3.8-flash (with thinking), then standard gemini-3.8-flash, then gemini-3.5-flash
-        if (enableHighThinking) {
-            modelsToTry.add(Pair(MODEL_RECOMMENDED, true))
-        }
-        modelsToTry.add(Pair(MODEL_RECOMMENDED, false))
-        modelsToTry.add(Pair(MODEL_FAST, false))
+        // Keep one known-configured model; do not probe speculative or unavailable model IDs.
+        val modelsToTry = listOf(Pair(MODEL_FAST, enableHighThinking))
 
         var lastErrorMessage = ""
-        var wasQuotaExceeded = false
+        var wasRateLimitOrQuota = false
 
         for ((modelName, useThinking) in modelsToTry) {
-            try {
-                val callResult = executeModelCall(
-                    apiKey = apiKey,
-                    modelName = modelName,
-                    prompt = prompt,
-                    useThinking = useThinking,
-                    conversationHistory = conversationHistory,
-                    customSystemPrompt = customSystemPrompt
-                )
-
-                when (callResult) {
-                    is InternalCallResult.Success -> {
-                        val fallbackNotice = if (enableHighThinking && modelName != MODEL_HIGH_THINKING) {
-                            "Note: gemini-4-argon quota limit is 0 on free tier. Auto-routed query to $modelName."
-                        } else null
-
-                        return@withContext GeminiResult.Success(
-                            text = callResult.text,
-                            thoughts = callResult.thoughts,
-                            modelUsed = modelName,
-                            fallbackNotice = fallbackNotice
-                        )
-                    }
-                    is InternalCallResult.QuotaExceeded -> {
-                        wasQuotaExceeded = true
-                        lastErrorMessage = callResult.message
-                        if (modelName == MODEL_HIGH_THINKING) {
-                            // Remember that gemini-4-argon has 0 quota so we don't stall future requests
-                            isArgonQuotaZero = true
-                            Log.w(TAG, "gemini-4-argon quota exhausted (limit 0 on free tier). Automatically falling back to $MODEL_RECOMMENDED.")
+            var attempt = 0
+            while (attempt < 2) {
+                try {
+                    when (val callResult = executeModelCall(
+                        apiKey = apiKey,
+                        modelName = modelName,
+                        prompt = prompt,
+                        useThinking = useThinking,
+                        conversationHistory = conversationHistory,
+                        customSystemPrompt = customSystemPrompt
+                    )) {
+                        is InternalCallResult.Success -> {
+                            return@withContext GeminiResult.Success(
+                                text = callResult.text,
+                                thoughts = callResult.thoughts,
+                                modelUsed = modelName
+                            )
                         }
-                        // Continue loop to try next model in fallback list
+                        is InternalCallResult.RateLimitOrQuota -> {
+                            wasRateLimitOrQuota = true
+                            lastErrorMessage = callResult.message
+                            break
+                        }
+                        is InternalCallResult.ApiError -> {
+                            lastErrorMessage = callResult.message
+                            Log.w(TAG, "Gemini HTTP ${callResult.code} on model $modelName: ${callResult.message}")
+                            break
+                        }
                     }
-                    is InternalCallResult.ApiError -> {
-                        lastErrorMessage = callResult.message
-                        Log.w(TAG, "Model $modelName error: ${callResult.code} - ${callResult.message}. Trying next fallback...")
-                        // Continue loop to try next fallback
+                    break
+                } catch (e: SocketTimeoutException) {
+                    if (attempt == 0) {
+                        attempt++
+                        delay(500L)
+                        continue
                     }
+                    lastErrorMessage = "Network timeout contacting Gemini. Check mobile data/Wi-Fi and retry."
+                    Log.w(TAG, "Gemini request timed out after ${attempt + 1} attempt(s); API key redacted.")
+                    break
+                } catch (e: UnknownHostException) {
+                    lastErrorMessage = "Cannot reach Gemini API. Check your internet connection or DNS."
+                    Log.w(TAG, "Gemini host could not be resolved; API key redacted.")
+                    break
+                } catch (e: IOException) {
+                    if (attempt == 0) {
+                        attempt++
+                        delay(500L)
+                        continue
+                    }
+                    lastErrorMessage = "Network error contacting Gemini (${e.javaClass.simpleName}). Check connection and retry."
+                    Log.w(TAG, "Gemini network failure (${e.javaClass.simpleName}); API key redacted.")
+                    break
+                } catch (e: Exception) {
+                    lastErrorMessage = "Unexpected Gemini response error (${e.javaClass.simpleName}). Please retry."
+                    Log.w(TAG, "Unexpected Gemini client error (${e.javaClass.simpleName}); API key redacted.")
+                    break
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "Exception calling $modelName", e)
-                lastErrorMessage = e.localizedMessage ?: "Unknown network error"
             }
         }
-
         // If all remote models failed or quota exceeded
         return@withContext GeminiResult.Error(
-            message = if (wasQuotaExceeded) {
-                "Gemini API Quota reached on active models. Please check your AI Studio plan or retry later. ($lastErrorMessage)"
+            message = if (wasRateLimitOrQuota) {
+                "The configured Gemini 3.5 model returned a rate-limit or quota response. Check API usage limits and retry later. ($lastErrorMessage)"
             } else {
                 "Error contacting AI provider: $lastErrorMessage"
             },
-            isQuotaExceeded = wasQuotaExceeded
+            isRateLimitOrQuota = wasRateLimitOrQuota
         )
     }
 
+    private fun providerErrorMessage(body: String, code: Int): String {
+        val rawMessage = runCatching {
+            JSONObject(body).optJSONObject("error")?.optString("message").orEmpty()
+        }.getOrDefault("")
+        val detail = rawMessage.replace(Regex("\\s+"), " ").take(180)
+        return when (code) {
+            400 -> "Gemini rejected the request (400). ${detail.ifBlank { "Check request/model settings." }}"
+            401, 403 -> "Gemini rejected the API key or its permissions ($code). Check key status and API restrictions."
+            404 -> "The Gemini model or endpoint was not found (404). Check the configured model name."
+            429 -> "Gemini quota or rate limit reached (429). Check project quota and retry later."
+            in 500..599 -> "Gemini service returned HTTP $code. Try again shortly."
+            else -> "Gemini API returned HTTP $code${if (detail.isNotBlank()) ": $detail" else ""}"
+        }
+    }
     private fun executeModelCall(
         apiKey: String,
         modelName: String,
@@ -165,7 +170,7 @@ class GeminiApiClient {
         conversationHistory: List<Pair<String, String>>,
         customSystemPrompt: String?
     ): InternalCallResult {
-        val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey"
+        val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent"
 
         val rootPayload = JSONObject()
 
@@ -206,18 +211,19 @@ class GeminiApiClient {
         val requestBody = rootPayload.toString().toRequestBody(jsonMediaType)
         val request = Request.Builder()
             .url(endpoint)
+            .header("x-goog-api-key", apiKey)
             .post(requestBody)
             .build()
 
         val response = client.newCall(request).execute()
-        val responseBodyString = response.body?.string() ?: ""
+        val responseBodyString = response.use { it.body?.string().orEmpty() }
 
         if (!response.isSuccessful) {
-            Log.e(TAG, "Gemini API HTTP Error ${response.code} on model $modelName: $responseBodyString")
+            Log.e(TAG, "Gemini API HTTP ${response.code} on model $modelName; response body omitted from logs.")
             if (response.code == 429 || responseBodyString.contains("RESOURCE_EXHAUSTED", ignoreCase = true)) {
-                return InternalCallResult.QuotaExceeded(responseBodyString)
+                return InternalCallResult.RateLimitOrQuota(providerErrorMessage(responseBodyString, response.code))
             }
-            return InternalCallResult.ApiError(response.code, responseBodyString)
+            return InternalCallResult.ApiError(response.code, providerErrorMessage(responseBodyString, response.code))
         }
 
         val jsonResponse = JSONObject(responseBodyString)
@@ -253,7 +259,7 @@ class GeminiApiClient {
 
     private sealed class InternalCallResult {
         data class Success(val text: String, val thoughts: String) : InternalCallResult()
-        data class QuotaExceeded(val message: String) : InternalCallResult()
+        data class RateLimitOrQuota(val message: String) : InternalCallResult()
         data class ApiError(val code: Int, val message: String) : InternalCallResult()
     }
 }

@@ -5,6 +5,10 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,14 +28,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.StopCircle
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +47,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -54,8 +64,9 @@ import com.example.ui.MainViewModel
 import com.example.ui.components.AnimatedOrb
 import com.example.ui.components.AudioWaveformBar
 import com.example.ui.components.LiquidGlassCard
+import com.example.ui.components.rememberReducedMotion
+import com.example.ui.components.liquidGlassBackground
 import com.example.ui.theme.CoolWhite
-import com.example.ui.theme.CyanGlow
 import com.example.ui.theme.ElectricViolet
 import com.example.ui.theme.GlassBorderCyan
 import com.example.ui.theme.GlassBorderSubtle
@@ -77,10 +88,15 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
     val audioRms by viewModel.voiceManager.audioRms.collectAsState()
     val partialText by viewModel.voiceManager.partialText.collectAsState()
     val recognizedText by viewModel.voiceManager.recognizedText.collectAsState()
-    val orbTheme by viewModel.orbTheme.collectAsState()
     val orbPulsation by viewModel.orbPulsationRate.collectAsState()
+    val reduceMotion = rememberReducedMotion()
 
-    var isLiveBaatMode by remember { mutableStateOf(true) } // true: Live Baat, false: Saathi Mode
+    var isLiveBaatMode by remember { mutableStateOf(true) }
+
+    LaunchedEffect(isLiveBaatMode) {
+        viewModel.voiceManager.setContinuousListeningEnabled(isLiveBaatMode)
+        if (!isLiveBaatMode) viewModel.voiceManager.cancelListening()
+    }
 
     var hasAudioPermission by remember {
         mutableStateOf(
@@ -100,12 +116,11 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(ObsidianDark)
+            .liquidGlassBackground()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Mode Selector: Live Baat vs Saathi Mode
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(24.dp))
@@ -123,11 +138,16 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
                         if (isLiveBaatMode) NeonCyan else Color.Transparent,
                         RoundedCornerShape(20.dp)
                     )
-                    .clickable { isLiveBaatMode = true }
+                    .clickable(role = Role.Button) { isLiveBaatMode = true }
+                    .semantics {
+                        contentDescription = "Live Baat mode"
+                        stateDescription = if (isLiveBaatMode) "Selected" else "Not selected"
+                        role = Role.Button
+                    }
                     .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = "Live Baat (Realtime)",
+                    text = "Live Baat",
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -144,7 +164,12 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
                         if (!isLiveBaatMode) ElectricViolet else Color.Transparent,
                         RoundedCornerShape(20.dp)
                     )
-                    .clickable { isLiveBaatMode = false }
+                    .clickable(role = Role.Button) { isLiveBaatMode = false }
+                    .semantics {
+                        contentDescription = "Saathi voice chat mode"
+                        stateDescription = if (!isLiveBaatMode) "Selected" else "Not selected"
+                        role = Role.Button
+                    }
                     .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
                 Text(
@@ -159,7 +184,6 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Center Area: Large Reactive Orb & Status
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.weight(1f),
@@ -169,14 +193,24 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
                 voiceState = voiceState,
                 size = 210.dp,
                 audioRms = audioRms,
-                visualTheme = orbTheme,
                 pulsationRate = orbPulsation,
                 onClick = {
                     if (voiceState == VoiceState.SPEAKING) {
                         viewModel.voiceManager.stopSpeaking()
                     } else if (hasAudioPermission) {
-                        if (voiceState == VoiceState.LISTENING) viewModel.voiceManager.stopListening()
-                        else viewModel.voiceManager.startListening()
+                        if (isLiveBaatMode) {
+                            if (voiceState == VoiceState.LISTENING) {
+                                viewModel.voiceManager.setContinuousListeningEnabled(false)
+                                viewModel.voiceManager.cancelListening()
+                            } else {
+                                viewModel.voiceManager.setContinuousListeningEnabled(true)
+                                viewModel.voiceManager.startListening()
+                            }
+                        } else if (voiceState == VoiceState.LISTENING) {
+                            viewModel.voiceManager.stopListening()
+                        } else {
+                            viewModel.voiceManager.startListening()
+                        }
                     } else {
                         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     }
@@ -185,7 +219,6 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // State Badge Pill
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(16.dp))
@@ -209,6 +242,17 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
                         },
                         shape = RoundedCornerShape(16.dp)
                     )
+                    .semantics {
+                        contentDescription = "Voice status"
+                        stateDescription = when (voiceState) {
+                            VoiceState.LISTENING -> "Listening"
+                            VoiceState.SPEAKING -> "Speaking"
+                            VoiceState.PROCESSING -> "Processing"
+                            VoiceState.ERROR -> "Audio error"
+                            VoiceState.IDLE -> "Idle"
+                        }
+                        liveRegion = LiveRegionMode.Polite
+                    }
                     .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -245,7 +289,6 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Audio Waveform Visualizer
             AudioWaveformBar(
                 voiceState = voiceState,
                 audioRms = audioRms,
@@ -255,11 +298,19 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Live Transcription Card
             LiquidGlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
+                    .padding(horizontal = 8.dp)
+                    .semantics {
+                        contentDescription = when {
+                            partialText.isNotBlank() -> "Partial transcript: $partialText"
+                            recognizedText.isNotBlank() -> "Recognized speech: $recognizedText"
+                            voiceState == VoiceState.SPEAKING -> "KIARAA is speaking"
+                            else -> "Voice transcript area"
+                        }
+                        liveRegion = LiveRegionMode.Polite
+                    },
                 backgroundColor = SurfaceGlass.copy(alpha = 0.6f)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -267,7 +318,8 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
                         text = if (partialText.isNotBlank()) "\"$partialText...\""
                         else if (recognizedText.isNotBlank()) "\"$recognizedText\""
                         else if (voiceState == VoiceState.SPEAKING) "KIARAA vocalizing response..."
-                        else "Hinglish voice ready. Ask anything about JEE, code, or schedule.",
+                        else if (isLiveBaatMode) "Live Baat will listen again after each response while this screen stays open."
+                        else "Saathi listens once per turn. Ask about coding, daily tasks, or phone controls.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (partialText.isNotBlank() || recognizedText.isNotBlank()) NeonCyan else TextMuted,
                         textAlign = TextAlign.Center
@@ -276,21 +328,24 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
             }
         }
 
-        // Bottom Voice Controls
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Barge-in Interruption Action
-            AnimatedVisibility(visible = voiceState == VoiceState.SPEAKING) {
+            AnimatedVisibility(
+                visible = voiceState == VoiceState.SPEAKING,
+                enter = if (reduceMotion) EnterTransition.None else fadeIn(),
+                exit = if (reduceMotion) ExitTransition.None else fadeOut()
+            ) {
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
                         .background(Color(0xFF3B1D28))
                         .border(1.dp, RubyError.copy(alpha = 0.6f), RoundedCornerShape(20.dp))
-                        .clickable { viewModel.voiceManager.stopSpeaking() }
+                        .clickable(role = Role.Button) { viewModel.voiceManager.stopSpeaking() }
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .testTag("barge_in_button")
+                        .semantics { contentDescription = "Interrupt and stop KIARAA speaking" }
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -313,11 +368,16 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Large Microphone Action Button
             IconButton(
                 onClick = {
                     if (hasAudioPermission) {
-                        if (voiceState == VoiceState.LISTENING) {
+                        if (isLiveBaatMode && voiceState == VoiceState.LISTENING) {
+                            viewModel.voiceManager.setContinuousListeningEnabled(false)
+                            viewModel.voiceManager.cancelListening()
+                        } else if (isLiveBaatMode) {
+                            viewModel.voiceManager.setContinuousListeningEnabled(true)
+                            viewModel.voiceManager.startListening()
+                        } else if (voiceState == VoiceState.LISTENING) {
                             viewModel.voiceManager.stopListening()
                         } else {
                             viewModel.voiceManager.startListening()
@@ -342,10 +402,24 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
                         shape = CircleShape
                     )
                     .testTag("live_baat_mic_button")
+                    .semantics {
+                        contentDescription = when {
+                            !hasAudioPermission -> "Grant microphone permission"
+                            voiceState == VoiceState.LISTENING -> "Stop voice listening"
+                            else -> "Start voice listening"
+                        }
+                        stateDescription = when (voiceState) {
+                            VoiceState.LISTENING -> "Listening"
+                            VoiceState.SPEAKING -> "Speaking"
+                            VoiceState.PROCESSING -> "Processing"
+                            VoiceState.ERROR -> "Voice error"
+                            VoiceState.IDLE -> "Idle"
+                        }
+                    }
             ) {
                 Icon(
                     imageVector = if (voiceState == VoiceState.LISTENING) Icons.Default.Mic else Icons.Default.Hearing,
-                    contentDescription = "Microphone",
+                    contentDescription = null,
                     tint = if (voiceState == VoiceState.LISTENING) ObsidianDark else NeonCyan,
                     modifier = Modifier.size(32.dp)
                 )

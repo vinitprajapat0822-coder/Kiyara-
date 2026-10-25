@@ -1,7 +1,6 @@
 package com.example.ui.theme
 
 import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -35,7 +34,7 @@ private val MidnightColorScheme = darkColorScheme(
 
 @Composable
 fun KiaraaTheme(
-    darkTheme: Boolean = true, // Default to Midnight Terminal dark theme
+    darkTheme: Boolean = true, // Default to KIARAA Midnight Liquid Glass
     content: @Composable () -> Unit
 ) {
     val colorScheme = MidnightColorScheme

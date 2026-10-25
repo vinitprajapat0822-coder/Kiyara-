@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 data class MemoryItem(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val category: String, // "Preferences", "JEE Prep", "Projects", "Decisions", "Routines", "General"
+    val category: String, // "Preferences", "Projects", "Decisions", "Routines", "General"
     val title: String,
     val content: String,
     val timestamp: Long = System.currentTimeMillis(),

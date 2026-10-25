@@ -23,12 +23,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.CyanGlow
 import com.example.ui.theme.ElectricViolet
-import com.example.ui.theme.EmeraldSuccess
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.RubyError
 import com.example.ui.theme.VioletGlow
@@ -36,60 +40,64 @@ import com.example.voice.VoiceState
 import kotlin.math.cos
 import kotlin.math.sin
 
-enum class OrbVisualTheme {
-    MIDNIGHT_TERMINAL,
-    NEON_MATRIX,
-    SOLAR_FLARE,
-    QUANTUM_NEBULA
-}
-
 @Composable
 fun AnimatedOrb(
     voiceState: VoiceState,
     modifier: Modifier = Modifier,
     size: Dp = 160.dp,
     audioRms: Float = 0f,
-    visualTheme: OrbVisualTheme = OrbVisualTheme.MIDNIGHT_TERMINAL,
     pulsationRate: Float = 1.0f,
     onClick: () -> Unit = {}
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "orb_infinite")
+    val reduceMotion = rememberReducedMotion()
+    val safeRate = pulsationRate.takeIf { it.isFinite() }?.coerceIn(0.5f, 2.0f) ?: 1.0f
+    val infiniteTransition = if (reduceMotion) null else rememberInfiniteTransition(label = "orb_infinite")
 
-    // Rotation angle
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = (10000 / pulsationRate).toInt(), easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "orb_rotation"
-    )
-
-    // Breathing pulse
-    val breathing by infiniteTransition.animateFloat(
-        initialValue = 0.92f,
-        targetValue = 1.08f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = (2400 / pulsationRate).toInt(), easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "orb_breathing"
-    )
+    // Under reduced motion, omit the infinite transition entirely rather than looping at 1 ms.
+    val rotation = if (infiniteTransition == null) {
+        0f
+    } else {
+        val animated by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween((10000f / safeRate).toInt().coerceIn(1000, 20000), easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "orb_rotation"
+        )
+        animated
+    }
+    val breathing = if (infiniteTransition == null) {
+        1f
+    } else {
+        val animated by infiniteTransition.animateFloat(
+            initialValue = 0.92f,
+            targetValue = 1.08f,
+            animationSpec = infiniteRepeatable(
+                animation = tween((2400f / safeRate).toInt().coerceIn(1200, 4800), easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "orb_breathing"
+        )
+        animated
+    }
 
     // Dynamic scale driven by audio RMS when speaking or listening
     val dynamicAudioScale = remember { Animatable(1f) }
-    LaunchedEffect(audioRms, voiceState) {
-        val target = when (voiceState) {
-            VoiceState.LISTENING -> 1f + (audioRms * 0.45f)
-            VoiceState.SPEAKING -> 1f + (audioRms * 0.6f).coerceAtLeast(0.15f)
+    LaunchedEffect(audioRms, voiceState, reduceMotion) {
+        val safeRms = audioRms.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0f
+        val target = if (reduceMotion) 1f else when (voiceState) {
+            VoiceState.LISTENING -> (1f + safeRms * 0.45f).coerceIn(1f, 1.35f)
+            VoiceState.SPEAKING -> (1f + (safeRms * 0.6f).coerceAtLeast(0.15f)).coerceIn(1f, 1.6f)
             VoiceState.PROCESSING -> 1.05f
             else -> 1f
         }
-        dynamicAudioScale.animateTo(
-            targetValue = target,
-            animationSpec = tween(durationMillis = 80, easing = LinearEasing)
-        )
+        if (reduceMotion) {
+            dynamicAudioScale.snapTo(1f)
+        } else {
+            dynamicAudioScale.animateTo(target, animationSpec = tween(80, easing = LinearEasing))
+        }
     }
 
     // Determine colors based on visual theme and voice state
@@ -98,21 +106,28 @@ fun AnimatedOrb(
         VoiceState.PROCESSING -> Pair(VioletGlow, NeonCyan)
         VoiceState.LISTENING -> Pair(NeonCyan, CyanGlow)
         VoiceState.SPEAKING -> Pair(CyanGlow, ElectricViolet)
-        VoiceState.IDLE -> when (visualTheme) {
-            OrbVisualTheme.MIDNIGHT_TERMINAL -> Pair(NeonCyan, ElectricViolet)
-            OrbVisualTheme.NEON_MATRIX -> Pair(Color(0xFF10B981), Color(0xFF06B6D4))
-            OrbVisualTheme.SOLAR_FLARE -> Pair(Color(0xFFF59E0B), Color(0xFFEF4444))
-            OrbVisualTheme.QUANTUM_NEBULA -> Pair(Color(0xFFEC4899), Color(0xFF8B5CF6))
-        }
+        VoiceState.IDLE -> Pair(NeonCyan, ElectricViolet)
     }
 
     Box(
         modifier = modifier
             .size(size)
             .testTag("kiaraa_animated_orb")
+            .semantics {
+                contentDescription = "KIARAA voice control"
+                stateDescription = when (voiceState) {
+                    VoiceState.IDLE -> "Idle"
+                    VoiceState.LISTENING -> "Listening"
+                    VoiceState.SPEAKING -> "Speaking"
+                    VoiceState.PROCESSING -> "Processing"
+                    VoiceState.ERROR -> "Voice error"
+                }
+                role = Role.Button
+            }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
+                role = Role.Button,
                 onClick = onClick
             ),
         contentAlignment = Alignment.Center
@@ -120,7 +135,7 @@ fun AnimatedOrb(
         Canvas(modifier = Modifier.size(size)) {
             val center = Offset(this.size.width / 2, this.size.height / 2)
             val baseRadius = (this.size.minDimension / 2) * 0.65f
-            val currentScale = breathing * dynamicAudioScale.value
+            val currentScale = (if (reduceMotion) 1f else breathing) * dynamicAudioScale.value
             val effectiveRadius = baseRadius * currentScale
 
             // Layer 1: Ambient Outer Glow
