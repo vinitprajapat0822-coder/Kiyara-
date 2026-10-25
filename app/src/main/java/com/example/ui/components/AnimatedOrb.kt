@@ -23,7 +23,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -45,7 +49,6 @@ fun AnimatedOrb(
     pulsationRate: Float = 1.0f,
     onClick: () -> Unit = {}
 ) {
-    val context = LocalContext.current
     val reduceMotion = rememberReducedMotion()
     val safeRate = pulsationRate.takeIf { it.isFinite() }?.coerceIn(0.5f, 2.0f) ?: 1.0f
     val infiniteTransition = if (reduceMotion) null else rememberInfiniteTransition(label = "orb_infinite")
@@ -110,9 +113,21 @@ fun AnimatedOrb(
         modifier = modifier
             .size(size)
             .testTag("kiaraa_animated_orb")
+            .semantics {
+                contentDescription = "KIARAA voice control"
+                stateDescription = when (voiceState) {
+                    VoiceState.IDLE -> "Idle"
+                    VoiceState.LISTENING -> "Listening"
+                    VoiceState.SPEAKING -> "Speaking"
+                    VoiceState.PROCESSING -> "Processing"
+                    VoiceState.ERROR -> "Voice error"
+                }
+                role = Role.Button
+            }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
+                role = Role.Button,
                 onClick = onClick
             ),
         contentAlignment = Alignment.Center

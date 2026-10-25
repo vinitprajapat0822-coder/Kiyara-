@@ -47,6 +47,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -252,7 +257,11 @@ fun MemoryScreen(viewModel: MainViewModel) {
                             if (isSelected) ElectricViolet else GlassBorderSubtle,
                             RoundedCornerShape(14.dp)
                         )
-                        .clickable { selectedCategory = cat }
+                        .clickable(role = Role.Button) { selectedCategory = cat }
+                        .semantics {
+                            contentDescription = "Filter memories by $cat"
+                            stateDescription = if (isSelected) "Selected" else "Not selected"
+                        }
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
@@ -445,7 +454,9 @@ fun MemoryCard(
     }
 
     LiquidGlassCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
+            contentDescription = "Memory card: ${memory.title}. Category: ${memory.category}. Saved $dateStr. ${memory.content}"
+        },
         borderColor = GlassBorderSubtle,
         backgroundColor = SurfaceGlass
     ) {

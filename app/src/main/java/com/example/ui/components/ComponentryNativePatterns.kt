@@ -37,6 +37,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -167,6 +171,7 @@ fun ComponentryTextMorph(status: String, modifier: Modifier = Modifier) {
 fun ComponentryHoverTransition(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    contentDescription: String? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -181,7 +186,11 @@ fun ComponentryHoverTransition(
         modifier = modifier
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(RoundedCornerShape(16.dp))
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                contentDescription?.let { this.contentDescription = it }
+            }
+            .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick),
         content = content
     )
 }
@@ -218,7 +227,11 @@ fun ComponentryOrbitCardStack(
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
-    ComponentryHoverTransition(onClick = onClick, modifier = modifier) {
+    ComponentryHoverTransition(
+        onClick = onClick,
+        modifier = modifier,
+        contentDescription = "$title. $detail"
+    ) {
         androidx.compose.foundation.layout.Column(
             modifier = Modifier
                 .background(SurfaceGlass, RoundedCornerShape(16.dp))

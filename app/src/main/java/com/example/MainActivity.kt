@@ -9,6 +9,8 @@ import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -61,6 +63,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import com.example.ui.components.rememberReducedMotion
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -112,6 +119,7 @@ fun MainAppContent(viewModel: MainViewModel) {
     val pendingDeviceConfirmation by viewModel.pendingDeviceConfirmation.collectAsState()
     val density = LocalDensity.current
     val isKeyboardVisible = WindowInsets.ime.getBottom(density) > 0
+    val reduceMotion = rememberReducedMotion()
 
     // Handle Android system back button properly: return to Terminal screen
     BackHandler(enabled = currentScreen != AppScreen.TERMINAL) {
@@ -149,8 +157,8 @@ fun MainAppContent(viewModel: MainViewModel) {
             // Top Status / Notification Banner
             AnimatedVisibility(
                 visible = statusBanner != null,
-                enter = fadeIn(),
-                exit = fadeOut(),
+                enter = if (reduceMotion) EnterTransition.None else fadeIn(),
+                exit = if (reduceMotion) ExitTransition.None else fadeOut(),
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -162,6 +170,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                             .clip(RoundedCornerShape(12.dp))
                             .background(SurfaceElevated)
                             .border(1.dp, GlassBorderCyan, RoundedCornerShape(12.dp))
+                            .semantics { contentDescription = "KIARAA notification: $message"; liveRegion = LiveRegionMode.Polite }
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Row(

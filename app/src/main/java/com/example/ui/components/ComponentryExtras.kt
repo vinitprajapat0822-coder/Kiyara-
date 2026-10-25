@@ -39,6 +39,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -77,6 +81,7 @@ fun ComponentryStatusFlap(status: String, modifier: Modifier = Modifier) {
             .clip(RoundedCornerShape(9.dp))
             .background(MintSoft)
             .border(1.dp, accent.copy(alpha = 0.55f), RoundedCornerShape(9.dp))
+            .semantics { contentDescription = "Assistant status: $status"; liveRegion = LiveRegionMode.Polite }
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -193,7 +198,9 @@ fun ComponentryMemoryDeck(memories: List<MemoryItem>, modifier: Modifier = Modif
             items(memories.take(4), key = { it.id }) { memory ->
                 val accent = if (memory.id % 2L == 0L) MintPrimary else GoldAccent
                 LiquidGlassCard(
-                    modifier = Modifier.width(168.dp),
+                    modifier = Modifier.width(168.dp).semantics(mergeDescendants = true) {
+                        contentDescription = "Memory card: ${memory.title}. Category: ${memory.category}. ${memory.content}"
+                    },
                     shape = RoundedCornerShape(16.dp),
                     backgroundColor = SurfaceGlass,
                     borderColor = accent.copy(alpha = 0.42f)

@@ -9,6 +9,9 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -62,6 +65,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import com.example.ui.components.rememberReducedMotion
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -105,6 +116,7 @@ fun ChatScreen(viewModel: MainViewModel) {
     val orbPulsation by viewModel.orbPulsationRate.collectAsState()
     val voiceState by viewModel.voiceManager.voiceState.collectAsState()
     val audioRms by viewModel.voiceManager.audioRms.collectAsState()
+    val reduceMotion = rememberReducedMotion()
 
     val listState = rememberLazyListState()
 
@@ -123,9 +135,10 @@ fun ChatScreen(viewModel: MainViewModel) {
         }
     }
 
-    LaunchedEffect(messages.size) {
+    LaunchedEffect(messages.size, reduceMotion) {
         if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
+            if (reduceMotion) listState.scrollToItem(messages.size - 1)
+            else listState.animateScrollToItem(messages.size - 1)
         }
     }
 
@@ -221,6 +234,10 @@ fun ChatScreen(viewModel: MainViewModel) {
                                 voiceState == VoiceState.SPEAKING -> "SPEAKING"
                                 voiceState == VoiceState.ERROR -> "VOICE ERROR"
                                 else -> "READY"
+                            },
+                            modifier = Modifier.semantics {
+                                contentDescription = "KIARAA assistant status"
+                                liveRegion = LiveRegionMode.Polite
                             }
                         )
                         Text(
@@ -273,10 +290,11 @@ fun ChatScreen(viewModel: MainViewModel) {
                         .clip(RoundedCornerShape(14.dp))
                         .background(SurfaceGlass)
                         .border(1.dp, GlassBorderSubtle, RoundedCornerShape(14.dp))
-                        .clickable {
+                        .clickable(role = Role.Button) {
                             val prompt = chipText.substringAfter(": ").ifEmpty { chipText }
                             viewModel.sendMessage(prompt)
                         }
+                        .semantics { contentDescription = "Suggestion: $chipText" }
                         .padding(horizontal = 10.dp, vertical = 5.dp)
                 ) {
                     Text(
@@ -327,7 +345,11 @@ fun ChatScreen(viewModel: MainViewModel) {
         }
 
         // Slash-command palette: actions stay local and do not send a command as chat text.
-        AnimatedVisibility(visible = inputText.trimStart().startsWith("/")) {
+        AnimatedVisibility(
+            visible = inputText.trimStart().startsWith("/"),
+            enter = if (reduceMotion) EnterTransition.None else fadeIn(),
+            exit = if (reduceMotion) ExitTransition.None else fadeOut()
+        ) {
             LazyRow(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
@@ -342,7 +364,8 @@ fun ChatScreen(viewModel: MainViewModel) {
                             .clip(RoundedCornerShape(12.dp))
                             .background(SurfaceGlass)
                             .border(1.dp, GlassBorderCyan, RoundedCornerShape(12.dp))
-                            .clickable { executeSlashCommand(command) }
+                            .clickable(role = Role.Button) { executeSlashCommand(command) }
+                            .semantics { contentDescription = "Run $command command" }
                             .padding(horizontal = 11.dp, vertical = 7.dp)
                     ) {
                         Text(command, color = NeonCyan, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
@@ -356,7 +379,7 @@ fun ChatScreen(viewModel: MainViewModel) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 6.dp)
-                .animateContentSize(),
+                .then(if (reduceMotion) Modifier else Modifier.animateContentSize(animationSpec = tween(180))),
             shape = RoundedCornerShape(18.dp),
             backgroundColor = SurfaceElevated.copy(alpha = 0.9f),
             borderColor = if (voiceState == VoiceState.LISTENING) NeonCyan else GlassBorderCyan
@@ -371,6 +394,7 @@ fun ChatScreen(viewModel: MainViewModel) {
                     modifier = Modifier
                         .weight(1f)
                         .testTag("chat_input_field"),
+                    label = { Text("Message to KIARAA") },
                     placeholder = {
                         Text(
                             text = if (voiceState == VoiceState.LISTENING) "Listening..." else "Ask KIARAA in Hinglish or English...",
@@ -419,6 +443,10 @@ fun ChatScreen(viewModel: MainViewModel) {
                             shape = CircleShape
                         )
                         .testTag("mic_toggle_button")
+                        .semantics {
+                            contentDescription = if (voiceState == VoiceState.LISTENING) "Stop voice input" else "Start voice input"
+                            stateDescription = if (voiceState == VoiceState.LISTENING) "Listening" else "Not listening"
+                        }
                 ) {
                     Icon(
                         imageVector = if (voiceState == VoiceState.LISTENING) Icons.Default.Mic else Icons.Default.MicOff,
@@ -441,6 +469,7 @@ fun ChatScreen(viewModel: MainViewModel) {
                             if (inputText.isNotBlank()) NeonCyan else SurfaceDark
                         )
                         .testTag("send_button")
+                        .semantics { contentDescription = if (inputText.isNotBlank() && !isGenerating) "Send message" else "Send message unavailable" }
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
@@ -556,11 +585,15 @@ fun GeneratingIndicator() {
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(16.dp),
-                strokeWidth = 2.dp,
-                color = NeonCyan
-            )
+            if (rememberReducedMotion()) {
+                Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp), tint = NeonCyan)
+            } else {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = NeonCyan
+                )
+            }
             Spacer(modifier = Modifier.width(10.dp))
             Text(
                 text = "KIARAA is thinking…",
