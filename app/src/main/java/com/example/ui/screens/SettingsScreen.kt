@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,13 +44,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -59,6 +57,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.operating.KiaraaAccessibilityService
 import com.example.ui.MainViewModel
 import com.example.ui.components.AnimatedOrb
 import com.example.ui.components.LiquidGlassCard
@@ -71,7 +70,6 @@ import com.example.ui.theme.GlassBorderCyan
 import com.example.ui.theme.GlassBorderSubtle
 import com.example.ui.theme.HighThinkingAccent
 import com.example.ui.theme.NeonCyan
-import com.example.ui.theme.ObsidianDark
 import com.example.ui.theme.RubyError
 import com.example.ui.theme.SurfaceDark
 import com.example.ui.theme.SurfaceElevated
@@ -79,7 +77,6 @@ import com.example.ui.theme.SurfaceGlass
 import com.example.ui.theme.TextDim
 import com.example.ui.theme.TextMuted
 import com.example.voice.VoiceState
-import com.example.operating.KiaraaAccessibilityService
 
 @Composable
 fun SettingsScreen(viewModel: MainViewModel) {
@@ -219,14 +216,26 @@ fun SettingsScreen(viewModel: MainViewModel) {
                         Text("Privacy & local data", color = CoolWhite, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     Text("Memory is stored locally. Only save details you choose. Passwords, OTPs, PINs and credentials must never be stored.", color = TextMuted, fontSize = 11.sp)
-                    Button(onClick = { privacyAction = "chat" }, modifier = Modifier.fillMaxWidth().height(46.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = RubyError.copy(alpha = 0.16f))) {
+                    Button(
+                        onClick = { privacyAction = "chat" },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(46.dp)
+                            .semantics { contentDescription = "Clear chat history" },
+                        colors = ButtonDefaults.buttonColors(containerColor = RubyError.copy(alpha = 0.16f))
+                    ) {
                         Icon(Icons.Default.DeleteForever, contentDescription = null, tint = RubyError)
                         Spacer(Modifier.size(8.dp))
                         Text("Clear chat history", color = CoolWhite)
                     }
-                    Button(onClick = { privacyAction = "memory" }, modifier = Modifier.fillMaxWidth().height(46.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = RubyError.copy(alpha = 0.16f))) {
+                    Button(
+                        onClick = { privacyAction = "memory" },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(46.dp)
+                            .semantics { contentDescription = "Clear Memory Vault" },
+                        colors = ButtonDefaults.buttonColors(containerColor = RubyError.copy(alpha = 0.16f))
+                    ) {
                         Icon(Icons.Default.DeleteForever, contentDescription = null, tint = RubyError)
                         Spacer(Modifier.size(8.dp))
                         Text("Clear Memory Vault", color = CoolWhite)
@@ -259,8 +268,14 @@ fun SettingsScreen(viewModel: MainViewModel) {
 
 @Composable
 private fun AccessButton(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    Button(onClick = onClick, modifier = Modifier.fillMaxWidth().height(48.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark)) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .semantics { contentDescription = label },
+        colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark)
+    ) {
         Icon(icon, contentDescription = null, tint = NeonCyan)
         Spacer(Modifier.size(8.dp))
         Text(label, color = CoolWhite, fontSize = 12.sp)
