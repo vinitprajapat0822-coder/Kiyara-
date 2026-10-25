@@ -1,7 +1,6 @@
 name: KIARAA Android CI
 
 on:
-  # Main pushes and pull requests run CI. PR branches are not built twice on each push.
   push:
     branches:
       - main
@@ -66,12 +65,41 @@ jobs:
       - name: Verify Wrapper and Gradle version
         run: ./gradlew --no-daemon --version
 
-      - name: Configure non-secret CI placeholders
+      - name: Configure provider credentials for debug APK
         shell: bash
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
         run: |
           set -euo pipefail
-          cp .env.example .env
-          echo "CI uses placeholders only; no provider credentials are embedded in this APK."
+          {
+            if [ -n "${GEMINI_API_KEY:-}" ]; then
+              echo "GEMINI_API_KEY=${GEMINI_API_KEY}"
+            else
+              echo "GEMINI_API_KEY=MY_GEMINI_API_KEY"
+            fi
+            if [ -n "${ELEVENLABS_API_KEY:-}" ]; then
+              echo "ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}"
+            else
+              echo "ELEVENLABS_API_KEY=MY_ELEVENLABS_API_KEY"
+            fi
+            if [ -n "${ELEVENLABS_VOICE_ID:-}" ]; then
+              echo "ELEVENLABS_VOICE_ID=${ELEVENLABS_VOICE_ID}"
+            else
+              echo "ELEVENLABS_VOICE_ID=MY_ELEVENLABS_VOICE_ID"
+            fi
+          } > .env
+          if [ -n "${GEMINI_API_KEY:-}" ]; then
+            echo "Gemini secret present: will embed into this debug APK."
+          else
+            echo "Gemini secret missing: APK will use placeholder and local companion mode."
+          fi
+          if [ -n "${ELEVENLABS_API_KEY:-}" ] && [ -n "${ELEVENLABS_VOICE_ID:-}" ]; then
+            echo "ElevenLabs secrets present: custom voice enabled for this debug APK."
+          else
+            echo "ElevenLabs secrets incomplete: Android TTS fallback will be used."
+          fi
 
       - name: Run unit tests and build debug APK
         run: ./gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug

@@ -17,11 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Tune
@@ -67,7 +65,6 @@ import com.example.ui.theme.CoolWhite
 import com.example.ui.theme.CyanGlow
 import com.example.ui.theme.ElectricViolet
 import com.example.ui.theme.GlassBorderCyan
-import com.example.ui.theme.GlassBorderSubtle
 import com.example.ui.theme.HighThinkingAccent
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.RubyError
@@ -103,43 +100,44 @@ fun SettingsScreen(viewModel: MainViewModel) {
         val component = ComponentName(context, KiaraaAccessibilityService::class.java).flattenToString()
         master && enabled.split(':').any { it.equals(component, ignoreCase = true) }
     }
-    val notificationEnabled = remember(accessRefresh) { com.example.operating.KiaraaNotificationListenerService.hasAccess(context) }
+    val notificationEnabled = remember(accessRefresh) {
+        com.example.operating.KiaraaNotificationListenerService.hasAccess(context)
+    }
     val writeEnabled = remember(accessRefresh) { Settings.System.canWrite(context) }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().componentryGrainGradient().padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxSize().componentryGrainGradient().padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
             LiquidGlassCard(backgroundColor = SurfaceElevated.copy(alpha = 0.92f), borderColor = GlassBorderCyan) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text("KIARAA AI", color = NeonCyan, fontSize = 22.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                    Text("Personal AI • Voice + Chat", color = TextMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                    Spacer(Modifier.height(8.dp))
-                    AnimatedOrb(voiceState = VoiceState.IDLE, size = 104.dp, pulsationRate = orbPulsation)
-                    Text("Your voice-first personal assistant", color = CoolWhite, fontSize = 13.sp)
-                    Text("Home • Voice • Memory • Settings", color = TextMuted, fontSize = 11.sp)
+                    Text("KIARAA AI", color = NeonCyan, fontSize = 20.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    AnimatedOrb(voiceState = VoiceState.IDLE, size = 88.dp, pulsationRate = orbPulsation)
+                    Text("Voice-first personal assistant", color = TextMuted, fontSize = 12.sp)
                 }
             }
         }
+
         item {
             LiquidGlassCard(backgroundColor = SurfaceGlass) {
-                Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Tune, contentDescription = null, tint = NeonCyan)
-                        Spacer(Modifier.size(8.dp))
-                        Text("Appearance", color = CoolWhite, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.Tune, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.size(6.dp))
+                        Text("Appearance", color = CoolWhite, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                        Box(Modifier.size(18.dp).clip(CircleShape).background(Brush.linearGradient(listOf(NeonCyan, ElectricViolet))))
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text("Midnight Liquid Glass", color = CoolWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                            Text("One unified frosted-glass surface with soft mint/gold highlights and a darker edge.", color = TextMuted, fontSize = 11.sp)
-                        }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.size(14.dp).clip(CircleShape).background(Brush.linearGradient(listOf(NeonCyan, ElectricViolet))))
+                        Text("Midnight Liquid Glass", color = CoolWhite, fontSize = 12.sp)
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Text("Orb motion", color = CoolWhite, fontSize = 12.sp)
-                        Text(String.format("%.1fx", orbPulsation), color = CyanGlow, fontSize = 12.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Orb motion", color = TextMuted, fontSize = 11.sp)
+                        Text(String.format("%.1fx", orbPulsation), color = CyanGlow, fontSize = 11.sp)
                     }
                     Slider(
                         value = orbPulsation,
@@ -158,93 +156,79 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 }
             }
         }
+
         item {
             LiquidGlassCard(backgroundColor = SurfaceGlass, borderColor = GlassBorderCyan) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Key, contentDescription = null, tint = HighThinkingAccent)
-                        Spacer(Modifier.size(8.dp))
-                        Text("AI connection", color = CoolWhite, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.Key, contentDescription = null, tint = HighThinkingAccent, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.size(6.dp))
+                        Text("AI connection", color = CoolWhite, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     }
-                    Text("Active model: " + activeModel.ifBlank { "gemini-3.5-flash-lite" }, color = NeonCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                    Text("The configured Gemini model uses a protected request header, one transient-network retry, and explicit API error messages.", color = TextMuted, fontSize = 11.sp)
-                    Spacer(Modifier.height(8.dp))
-                    Text("Voice output", color = CoolWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Text(
-                        voiceProviderStatus,
-                        color = when {
-                            voiceProviderStatus.contains("unavailable", ignoreCase = true) || voiceProviderStatus.contains("failed", ignoreCase = true) -> RubyError
-                            voiceProviderStatus.contains("ElevenLabs", ignoreCase = true) -> CyanGlow
-                            else -> TextMuted
-                        },
-                        fontSize = 12.sp
+                        activeModel.ifBlank { "gemini-3.5-flash-lite" },
+                        color = NeonCyan,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
                     )
+                    Text(voiceProviderStatus, color = CyanGlow, fontSize = 11.sp)
                     voiceError?.takeIf { it.isNotBlank() }?.let {
                         Text(it, color = AmberWarning, fontSize = 11.sp)
                     }
-                    Text("Release security: the prototype currently calls Gemini from the Android client. Before public release, move the API key behind an authenticated backend proxy; a key packaged in an APK can be extracted.", color = AmberWarning, fontSize = 11.sp)
                 }
             }
         }
+
         item {
             LiquidGlassCard(backgroundColor = SurfaceGlass) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Device access", color = CoolWhite, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("All special access is opt-in. Android settings open only after you request a feature; KIARAA never enables them silently.", color = TextMuted, fontSize = 11.sp)
-                    Text("Accessibility: " + if (accessibilityEnabled) "Enabled" else "Not enabled", color = if (accessibilityEnabled) CyanGlow else AmberWarning, fontSize = 12.sp)
-                    AccessButton("Enable / manage Accessibility", Icons.Default.Accessibility) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Device access", color = CoolWhite, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    StatusLine("Accessibility", accessibilityEnabled)
+                    AccessButton("Accessibility", Icons.Default.Accessibility) {
                         context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                     }
-                    Text("Notification access: " + if (notificationEnabled) "Enabled" else "Not enabled", color = if (notificationEnabled) CyanGlow else AmberWarning, fontSize = 12.sp)
-                    AccessButton("Enable / manage Notification Access", Icons.Default.NotificationsActive) {
+                    StatusLine("Notifications", notificationEnabled)
+                    AccessButton("Notification access", Icons.Default.NotificationsActive) {
                         context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     }
-                    Text("Modify system settings: " + if (writeEnabled) "Enabled" else "Not enabled", color = if (writeEnabled) CyanGlow else AmberWarning, fontSize = 12.sp)
-                    AccessButton("Allow brightness / timeout changes", Icons.Default.Tune) {
-                        context.startActivity(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${context.packageName}")))
+                    StatusLine("System settings", writeEnabled)
+                    AccessButton("Brightness / timeout", Icons.Default.Tune) {
+                        context.startActivity(
+                            Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${context.packageName}"))
+                        )
                     }
-                    Text("After returning, tap a status/control again to refresh. Android restricts direct Wi-Fi, mobile-data, airplane-mode and some DND switches, so KIARAA opens the settings page rather than claiming a successful toggle. Media search opens results but does not auto-select a video/song.", color = TextMuted, fontSize = 11.sp)
                 }
             }
         }
+
         item {
-            LiquidGlassCard(backgroundColor = SurfaceGlass, borderColor = GlassBorderSubtle) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = CyanGlow)
-                        Spacer(Modifier.size(8.dp))
-                        Text("Privacy & local data", color = CoolWhite, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    }
-                    Text("Memory is stored locally. Only save details you choose. Passwords, OTPs, PINs and credentials must never be stored.", color = TextMuted, fontSize = 11.sp)
+            LiquidGlassCard(backgroundColor = SurfaceGlass) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Privacy", color = CoolWhite, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Button(
                         onClick = { privacyAction = "chat" },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(46.dp)
-                            .semantics { contentDescription = "Clear chat history" },
+                        modifier = Modifier.fillMaxWidth().height(42.dp).semantics { contentDescription = "Clear chat history" },
                         colors = ButtonDefaults.buttonColors(containerColor = RubyError.copy(alpha = 0.16f))
                     ) {
-                        Icon(Icons.Default.DeleteForever, contentDescription = null, tint = RubyError)
-                        Spacer(Modifier.size(8.dp))
-                        Text("Clear chat history", color = CoolWhite)
+                        Icon(Icons.Default.DeleteForever, contentDescription = null, tint = RubyError, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.size(6.dp))
+                        Text("Clear chat", color = CoolWhite, fontSize = 12.sp)
                     }
                     Button(
                         onClick = { privacyAction = "memory" },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(46.dp)
-                            .semantics { contentDescription = "Clear Memory Vault" },
+                        modifier = Modifier.fillMaxWidth().height(42.dp).semantics { contentDescription = "Clear Memory Vault" },
                         colors = ButtonDefaults.buttonColors(containerColor = RubyError.copy(alpha = 0.16f))
                     ) {
-                        Icon(Icons.Default.DeleteForever, contentDescription = null, tint = RubyError)
-                        Spacer(Modifier.size(8.dp))
-                        Text("Clear Memory Vault", color = CoolWhite)
+                        Icon(Icons.Default.DeleteForever, contentDescription = null, tint = RubyError, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.size(6.dp))
+                        Text("Clear memory", color = CoolWhite, fontSize = 12.sp)
                     }
                 }
             }
         }
+
         item {
-            Text("KIARAA AI • Personal Assistant", modifier = Modifier.fillMaxWidth().padding(8.dp), color = TextDim, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+            Text("KIARAA", modifier = Modifier.fillMaxWidth().padding(4.dp), color = TextDim, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
         }
     }
 
@@ -252,8 +236,8 @@ fun SettingsScreen(viewModel: MainViewModel) {
         val isChat = privacyAction == "chat"
         AlertDialog(
             onDismissRequest = { privacyAction = "" },
-            title = { Text(if (isChat) "Clear chat history?" else "Clear Memory Vault?", color = CoolWhite) },
-            text = { Text("This permanently removes the selected local data. This cannot be undone.", color = TextMuted) },
+            title = { Text(if (isChat) "Clear chat?" else "Clear memory?", color = CoolWhite) },
+            text = { Text("This cannot be undone.", color = TextMuted) },
             confirmButton = {
                 TextButton(onClick = {
                     if (isChat) viewModel.clearChatHistory() else viewModel.clearAllMemories()
@@ -267,17 +251,23 @@ fun SettingsScreen(viewModel: MainViewModel) {
 }
 
 @Composable
+private fun StatusLine(label: String, enabled: Boolean) {
+    Text(
+        "$label: " + if (enabled) "On" else "Off",
+        color = if (enabled) CyanGlow else AmberWarning,
+        fontSize = 11.sp
+    )
+}
+
+@Composable
 private fun AccessButton(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .semantics { contentDescription = label },
+        modifier = Modifier.fillMaxWidth().height(44.dp).semantics { contentDescription = label },
         colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark)
     ) {
-        Icon(icon, contentDescription = null, tint = NeonCyan)
-        Spacer(Modifier.size(8.dp))
+        Icon(icon, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.size(6.dp))
         Text(label, color = CoolWhite, fontSize = 12.sp)
     }
 }
