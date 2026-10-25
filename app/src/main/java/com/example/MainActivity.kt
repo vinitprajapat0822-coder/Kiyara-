@@ -356,7 +356,7 @@ fun KiaraaNavigationBar(
                     ComponentryDockHighlight(selected = isSelected) {
                         Icon(
                             imageVector = icon,
-                            contentDescription = label,
+                            contentDescription = null,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -376,7 +376,12 @@ fun KiaraaNavigationBar(
                     unselectedTextColor = TextDim,
                     indicatorColor = NeonCyan.copy(alpha = 0.15f)
                 ),
-                modifier = Modifier.testTag("nav_item_${screen.name.lowercase()}")
+                modifier = Modifier
+                    .testTag("nav_item_${screen.name.lowercase()}")
+                    .semantics {
+                        contentDescription = "$label tab"
+                        stateDescription = if (isSelected) "Selected" else "Not selected"
+                    }
             )
         }
     }

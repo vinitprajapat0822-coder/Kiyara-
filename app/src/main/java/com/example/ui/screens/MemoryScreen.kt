@@ -174,7 +174,9 @@ fun MemoryScreen(viewModel: MainViewModel) {
                 shape = RoundedCornerShape(12.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, NeonCyan),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                modifier = Modifier.testTag("add_memory_button")
+                modifier = Modifier
+                    .testTag("add_memory_button")
+                    .semantics { contentDescription = "Add a memory to the vault" }
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
@@ -203,7 +205,8 @@ fun MemoryScreen(viewModel: MainViewModel) {
                     colors = ButtonDefaults.buttonColors(containerColor = SurfaceElevated),
                     shape = RoundedCornerShape(12.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, GlassBorderSubtle),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier.semantics { contentDescription = "Copy memory vault JSON to clipboard" }
                 ) {
                     Icon(
                         imageVector = Icons.Default.Share,
@@ -227,7 +230,8 @@ fun MemoryScreen(viewModel: MainViewModel) {
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1015)),
                     shape = RoundedCornerShape(12.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, RubyError.copy(alpha = 0.4f)),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                    modifier = Modifier.semantics { contentDescription = "Clear all saved memories" }
                 ) {
                     Text(
                         text = "Clear",
@@ -490,17 +494,24 @@ fun MemoryCard(
                     )
                 }
 
-                IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
-                    Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit memory", tint = CyanGlow, modifier = Modifier.size(16.dp))
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier.size(28.dp).semantics {
+                        contentDescription = "Edit memory: ${memory.title}"
+                    }
+                ) {
+                    Icon(imageVector = Icons.Default.Edit, contentDescription = null, tint = CyanGlow, modifier = Modifier.size(16.dp))
                 }
 
                 IconButton(
                     onClick = onDelete,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(28.dp).semantics {
+                        contentDescription = "Forget memory: ${memory.title}"
+                    }
                 ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
-                        contentDescription = "Forget",
+                        contentDescription = null,
                         tint = RubyError.copy(alpha = 0.8f),
                         modifier = Modifier.size(16.dp)
                     )

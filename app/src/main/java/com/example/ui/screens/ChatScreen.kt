@@ -236,7 +236,13 @@ fun ChatScreen(viewModel: MainViewModel) {
                                 else -> "READY"
                             },
                             modifier = Modifier.semantics {
-                                contentDescription = "KIARAA assistant status"
+                                contentDescription = "KIARAA assistant status: " + when {
+                                    isGenerating || voiceState == VoiceState.PROCESSING -> "Thinking"
+                                    voiceState == VoiceState.LISTENING -> "Listening"
+                                    voiceState == VoiceState.SPEAKING -> "Speaking"
+                                    voiceState == VoiceState.ERROR -> "Voice error"
+                                    else -> "Ready"
+                                }
                                 liveRegion = LiveRegionMode.Polite
                             }
                         )
@@ -351,7 +357,10 @@ fun ChatScreen(viewModel: MainViewModel) {
             exit = if (reduceMotion) ExitTransition.None else fadeOut()
         ) {
             LazyRow(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 2.dp)
+                    .semantics { contentDescription = "Slash command suggestions" },
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
                 contentPadding = PaddingValues(vertical = 2.dp)
             ) {
@@ -393,7 +402,11 @@ fun ChatScreen(viewModel: MainViewModel) {
                     onValueChange = { viewModel.updateInputText(it) },
                     modifier = Modifier
                         .weight(1f)
-                        .testTag("chat_input_field"),
+                        .testTag("chat_input_field")
+                        .semantics {
+                            contentDescription = "Message input for KIARAA"
+                            stateDescription = if (inputText.isBlank()) "Empty" else "${inputText.length} characters entered"
+                        },
                     label = { Text("Message to KIARAA") },
                     placeholder = {
                         Text(
@@ -469,7 +482,16 @@ fun ChatScreen(viewModel: MainViewModel) {
                             if (inputText.isNotBlank()) NeonCyan else SurfaceDark
                         )
                         .testTag("send_button")
-                        .semantics { contentDescription = if (inputText.isNotBlank() && !isGenerating) "Send message" else "Send message unavailable" }
+                        .semantics {
+                            contentDescription = if (inputText.trimStart().startsWith("/")) {
+                                "Run KIARAA slash command"
+                            } else if (inputText.isNotBlank() && !isGenerating) {
+                                "Send message to KIARAA"
+                            } else {
+                                "Send message unavailable"
+                            }
+                            stateDescription = if (isGenerating) "KIARAA is responding" else "Ready"
+                        }
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,

@@ -45,6 +45,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -141,8 +144,20 @@ fun SettingsScreen(viewModel: MainViewModel) {
                         Text("Orb motion", color = CoolWhite, fontSize = 12.sp)
                         Text(String.format("%.1fx", orbPulsation), color = CyanGlow, fontSize = 12.sp)
                     }
-                    Slider(orbPulsation, { viewModel.setOrbPulsationRate(it) }, valueRange = 0.5f..2f,
-                        colors = SliderDefaults.colors(thumbColor = NeonCyan, activeTrackColor = NeonCyan, inactiveTrackColor = SurfaceElevated))
+                    Slider(
+                        value = orbPulsation,
+                        onValueChange = { viewModel.setOrbPulsationRate(it) },
+                        valueRange = 0.5f..2f,
+                        modifier = Modifier.semantics {
+                            contentDescription = "Orb motion speed"
+                            stateDescription = String.format("%.1f times normal", orbPulsation)
+                        },
+                        colors = SliderDefaults.colors(
+                            thumbColor = NeonCyan,
+                            activeTrackColor = NeonCyan,
+                            inactiveTrackColor = SurfaceElevated
+                        )
+                    )
                 }
             }
         }

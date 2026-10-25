@@ -5,6 +5,10 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,6 +49,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -55,6 +63,7 @@ import com.example.ui.MainViewModel
 import com.example.ui.components.AnimatedOrb
 import com.example.ui.components.AudioWaveformBar
 import com.example.ui.components.LiquidGlassCard
+import com.example.ui.components.rememberReducedMotion
 import com.example.ui.components.liquidGlassBackground
 import com.example.ui.theme.CoolWhite
 import com.example.ui.theme.CyanGlow
@@ -80,6 +89,7 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
     val partialText by viewModel.voiceManager.partialText.collectAsState()
     val recognizedText by viewModel.voiceManager.recognizedText.collectAsState()
     val orbPulsation by viewModel.orbPulsationRate.collectAsState()
+    val reduceMotion = rememberReducedMotion()
 
     var isLiveBaatMode by remember { mutableStateOf(true) } // Live Baat listens again after each response while this screen is active.
 
@@ -299,15 +309,20 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Barge-in Interruption Action
-            AnimatedVisibility(visible = voiceState == VoiceState.SPEAKING) {
+            AnimatedVisibility(
+                visible = voiceState == VoiceState.SPEAKING,
+                enter = if (reduceMotion) EnterTransition.None else fadeIn(),
+                exit = if (reduceMotion) ExitTransition.None else fadeOut()
+            ) {
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
                         .background(Color(0xFF3B1D28))
                         .border(1.dp, RubyError.copy(alpha = 0.6f), RoundedCornerShape(20.dp))
-                        .clickable { viewModel.voiceManager.stopSpeaking() }
+                        .clickable(role = Role.Button) { viewModel.voiceManager.stopSpeaking() }
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .testTag("barge_in_button")
+                        .semantics { contentDescription = "Interrupt and stop KIARAA speaking" }
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -365,10 +380,24 @@ fun LiveBaatScreen(viewModel: MainViewModel) {
                         shape = CircleShape
                     )
                     .testTag("live_baat_mic_button")
+                    .semantics {
+                        contentDescription = when {
+                            !hasAudioPermission -> "Grant microphone permission"
+                            voiceState == VoiceState.LISTENING -> "Stop voice listening"
+                            else -> "Start voice listening"
+                        }
+                        stateDescription = when (voiceState) {
+                            VoiceState.LISTENING -> "Listening"
+                            VoiceState.SPEAKING -> "Speaking"
+                            VoiceState.PROCESSING -> "Processing"
+                            VoiceState.ERROR -> "Voice error"
+                            VoiceState.IDLE -> "Idle"
+                        }
+                    }
             ) {
                 Icon(
                     imageVector = if (voiceState == VoiceState.LISTENING) Icons.Default.Mic else Icons.Default.Hearing,
-                    contentDescription = "Microphone",
+                    contentDescription = null,
                     tint = if (voiceState == VoiceState.LISTENING) ObsidianDark else NeonCyan,
                     modifier = Modifier.size(32.dp)
                 )
